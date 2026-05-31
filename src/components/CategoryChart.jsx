@@ -1,0 +1,103 @@
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import { formatCurrencyFromPaise } from "../utils/currency.js";
+import EmptyState from "./EmptyState.jsx";
+
+const FALLBACK_COLORS = [
+  "#2563eb",
+  "#0f766e",
+  "#b42318",
+  "#a15c07",
+  "#6366f1",
+  "#0891b2",
+  "#be185d",
+];
+
+function toAmount(value) {
+  const amount = Number(value ?? 0);
+
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function ChartTooltip({ active, payload }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const item = payload[0]?.payload;
+
+  return (
+    <div className="chart-tooltip">
+      <strong>{item?.category || "Category"}</strong>
+      <span>{formatCurrencyFromPaise(item?.amountPaise)}</span>
+    </div>
+  );
+}
+
+export default function CategoryChart({ items = [] }) {
+  const data = items
+    .map((item, index) => ({
+      amountPaise: toAmount(item?.amountPaise),
+      category: item?.category || "Uncategorized",
+      color: item?.color || FALLBACK_COLORS[index % FALLBACK_COLORS.length],
+    }))
+    .filter((item) => item.amountPaise > 0);
+  const total = data.reduce((sum, item) => sum + item.amountPaise, 0);
+
+  if (!data.length) {
+    return (
+      <EmptyState
+        title="No category spending"
+        message="Expense categories will appear after transactions exist."
+      />
+    );
+  }
+
+  return (
+    <div className="chart-with-list">
+      <div className="chart-frame" aria-label="Category spending chart">
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="amountPaise"
+              innerRadius="58%"
+              nameKey="category"
+              outerRadius="84%"
+              paddingAngle={2}
+            >
+              {data.map((item) => (
+                <Cell fill={item.color} key={item.category} />
+              ))}
+            </Pie>
+            <Tooltip content={<ChartTooltip />} />
+            <Legend
+              formatter={(value) => <span className="chart-legend-label">{value}</span>}
+              iconType="circle"
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="chart-center-label" aria-hidden="true">
+          <span>Total</span>
+          <strong>{formatCurrencyFromPaise(total)}</strong>
+        </div>
+      </div>
+
+      <ul className="category-list chart-detail-list">
+        {data.slice(0, 6).map((item) => (
+          <li className="category-row" key={item.category}>
+            <span className="category-color" style={{ backgroundColor: item.color }} aria-hidden="true" />
+            <span>{item.category}</span>
+            <strong>{formatCurrencyFromPaise(item.amountPaise)}</strong>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

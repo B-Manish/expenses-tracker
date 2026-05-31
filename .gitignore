@@ -11,6 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.wrangler
+.chrome-*
+.dev.vars
+.dev.vars.*
 
 # Editor directories and files
 .vscode/*

@@ -1,16 +1,128 @@
-# React + Vite
+# Expenses Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A personal expense and income tracker built for the Cloudflare free tier.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React + Vite frontend
+- Cloudflare Pages hosting
+- Cloudflare Pages Functions API
+- Cloudflare D1 database
+- App-password authentication with signed HttpOnly cookies
 
-## React Compiler
+The app stores money as integer paise and uses `Asia/Kolkata` for user-facing date calculations.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local Development
 
-## Expanding the ESLint configuration
+Install dependencies:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+```
+
+Build the frontend:
+
+```bash
+npm run build
+```
+
+Apply D1 migrations locally:
+
+```bash
+npx wrangler d1 migrations apply expenses-tracker-db --local
+```
+
+Run the Cloudflare Pages app locally after building:
+
+```bash
+npx wrangler pages dev dist
+```
+
+If the D1 binding is not detected before the real database ID is configured, pass the binding explicitly:
+
+```bash
+npx wrangler pages dev dist --d1 DB=<DATABASE_ID>
+```
+
+For local auth testing, set `APP_PASSWORD` and `SESSION_SECRET` in `.dev.vars`. This file is ignored by git.
+
+## Cloudflare Deployment
+
+This project is configured for Cloudflare Pages with Vite, Pages Functions, and a D1 binding named `DB`.
+
+1. Build the app:
+
+```bash
+npm run build
+```
+
+2. Create the D1 database if it does not already exist:
+
+```bash
+npx wrangler d1 create expenses-tracker-db
+```
+
+3. Copy the returned `database_id` into `wrangler.toml`:
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "expenses-tracker-db"
+database_id = "<CLOUDFLARE_D1_DATABASE_ID>"
+```
+
+4. Apply migrations:
+
+```bash
+npx wrangler d1 migrations apply expenses-tracker-db --local
+npx wrangler d1 migrations apply expenses-tracker-db --remote
+```
+
+5. Configure Cloudflare Pages:
+
+- Framework preset: `Vite`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Root directory: leave empty because `package.json` is at the repository root
+
+6. Configure the production D1 binding in Cloudflare Pages:
+
+- Binding variable name: `DB`
+- Database: `expenses-tracker-db`
+
+7. Configure production environment variables in Cloudflare Pages:
+
+- `APP_PASSWORD`
+- `SESSION_SECRET`
+
+Do not put secret values in React source files, `wrangler.toml`, or committed documentation.
+
+8. Deploy through Cloudflare Pages or Wrangler:
+
+```bash
+npx wrangler pages deploy dist --project-name expenses-tracker
+```
+
+For non-interactive Wrangler runs, set `CLOUDFLARE_API_TOKEN` in the shell or CI environment. Do not commit this token.
+
+## Production Smoke Test
+
+After deployment, verify:
+
+- Static app loads.
+- `GET /api/health` returns success.
+- `GET /api/expenses` returns `401` when logged out.
+- Login works with the configured `APP_PASSWORD`.
+- Add, edit, and delete an expense.
+- Add, edit, and delete income.
+- Add, edit, and delete unused custom categories.
+- Add, edit, and delete unused custom payment methods.
+- Dashboard stats load and reflect D1 data.
+- Mobile layout is usable.
+- Cloudflare Pages Functions logs do not show raw production errors.
+
+## MVP Limitations
+
+- CSV export, bulk delete-all-data, and bank connection are placeholders only.
+- Live bank sync, direct SBI API calls, Account Aggregator integration, OTP collection, and bank credential collection are not implemented.
+- The app is intended for personal use on Cloudflare Pages, Pages Functions, and D1 free-tier infrastructure.
