@@ -525,6 +525,14 @@ h2 {
   grid-template-columns: 40px minmax(0, 1fr) auto 40px;
 }
 
+.recurring-row {
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+}
+
+.inactive-row {
+  background: var(--surface-muted);
+}
+
 .list-icon {
   display: inline-flex;
   align-items: center;
@@ -782,6 +790,25 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.checkbox-field {
+  align-content: start;
+}
+
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  width: fit-content;
+  color: var(--heading);
+  font-weight: 800;
+}
+
+.checkbox-inline input {
+  width: 18px;
+  height: 18px;
 }
 
 .readonly-value {
@@ -1379,7 +1406,8 @@ h2 {
   }
 
   .list-row,
-  .transaction-row {
+  .transaction-row,
+  .recurring-row {
     grid-template-columns: 40px minmax(0, 1fr);
   }
 

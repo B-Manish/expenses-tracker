@@ -162,6 +162,55 @@ export function validateCategoryForm(values) {
   };
 }
 
+export function validateRecurringExpenseForm(values, options = {}) {
+  const categories = options.categories || [];
+  const errors = {};
+  const title = values.title?.trim() || "";
+
+  if (!title) {
+    errors.title = "Name is required.";
+  } else if (title.length > 120) {
+    errors.title = "Name must be 120 characters or less.";
+  }
+
+  const amountResult = parseRupeesToPaiseInput(values.amount || "");
+
+  if (!amountResult.ok) {
+    errors.amount = amountResult.message;
+  }
+
+  const billingDay = Number(values.billingDay);
+
+  if (!Number.isInteger(billingDay) || billingDay < 1 || billingDay > 31) {
+    errors.billingDay = "Billing day must be between 1 and 31.";
+  }
+
+  const category = findById(categories, values.categoryId);
+
+  if (!values.categoryId) {
+    errors.categoryId = "Choose a category.";
+  } else if (!category) {
+    errors.categoryId = "Choose a valid category.";
+  } else if (category.type !== "EXPENSE") {
+    errors.categoryId = "Choose an expense category.";
+  }
+
+  if (values.frequency !== "MONTHLY") {
+    errors.frequency = "Only monthly recurring expenses are supported.";
+  }
+
+  const notes = values.notes?.trim() || "";
+
+  if (notes.length > 1000) {
+    errors.notes = "Notes must be 1000 characters or less.";
+  }
+
+  return {
+    errors,
+    isValid: Object.keys(errors).length === 0,
+  };
+}
+
 export function validatePaymentMethodForm(values) {
   const errors = {};
   const name = values.name?.trim() || "";

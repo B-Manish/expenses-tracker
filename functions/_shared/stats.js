@@ -61,6 +61,16 @@ function monthString(year, month) {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+function endOfMonth(year, month) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function occurrenceDateForMonth(year, month, billingDay) {
+  const day = Math.min(billingDay, endOfMonth(year, month));
+
+  return `${monthString(year, month)}-${String(day).padStart(2, "0")}`;
+}
+
 function startOfMonth(dateString) {
   return `${dateString.slice(0, 7)}-01`;
 }
@@ -137,6 +147,75 @@ async function sumExpensesForRange(db, range) {
   return toInteger(row?.total_paise);
 }
 
+async function getActiveRecurringExpenses(db, userId) {
+  const rows = await db
+    .prepare(`
+      SELECT
+        re.id,
+        re.title,
+        re.amount_paise,
+        re.category_id,
+        c.name AS category_name,
+        c.color AS category_color,
+        re.billing_day
+      FROM recurring_expenses re
+      LEFT JOIN categories c ON c.id = re.category_id
+      WHERE re.user_id = ?
+        AND re.is_active = 1
+        AND re.frequency = 'MONTHLY'
+      ORDER BY re.billing_day ASC, LOWER(re.title) ASC, re.id ASC
+    `)
+    .bind(userId)
+    .all();
+
+  return (rows.results || []).map((row) => ({
+    id: row.id,
+    title: row.title,
+    amountPaise: toInteger(row.amount_paise),
+    categoryId: row.category_id,
+    categoryName: row.category_name ?? "Uncategorized",
+    categoryColor: row.category_color ?? DEFAULT_CATEGORY_COLOR,
+    billingDay: toInteger(row.billing_day),
+  }));
+}
+
+function getRecurringOccurrencesForRange(recurringExpenses, range) {
+  const fromYear = Number(range.from.slice(0, 4));
+  const fromMonth = Number(range.from.slice(5, 7));
+  const toYear = Number(range.to.slice(0, 4));
+  const toMonth = Number(range.to.slice(5, 7));
+  const occurrences = [];
+
+  for (
+    let year = fromYear, month = fromMonth;
+    year < toYear || (year === toYear && month <= toMonth);
+    month += 1
+  ) {
+    if (month > 12) {
+      year += 1;
+      month = 1;
+    }
+
+    for (const expense of recurringExpenses) {
+      const date = occurrenceDateForMonth(year, month, expense.billingDay);
+
+      if (date >= range.from && date <= range.to) {
+        occurrences.push({
+          ...expense,
+          date,
+        });
+      }
+    }
+  }
+
+  return occurrences;
+}
+
+function sumRecurringOccurrences(recurringExpenses, range) {
+  return getRecurringOccurrencesForRange(recurringExpenses, range)
+    .reduce((total, expense) => total + expense.amountPaise, 0);
+}
+
 async function getSelectedPeriodTotals(db, range) {
   const row = await db
     .prepare(`
@@ -194,6 +273,28 @@ async function getBiggestExpense(db, range) {
   };
 }
 
+function getBiggestRecurringExpense(recurringExpenses, range) {
+  const biggest = getRecurringOccurrencesForRange(recurringExpenses, range)
+    .sort((first, second) => (
+      second.amountPaise - first.amountPaise ||
+      second.date.localeCompare(first.date) ||
+      first.title.localeCompare(second.title)
+    ))[0];
+
+  if (!biggest) {
+    return null;
+  }
+
+  return {
+    id: biggest.id,
+    title: biggest.title,
+    amountPaise: biggest.amountPaise,
+    transactionDate: biggest.date,
+    categoryName: biggest.categoryName,
+    source: "RECURRING",
+  };
+}
+
 async function getMostUsedCategory(db, range) {
   const row = await db
     .prepare(`
@@ -223,6 +324,31 @@ async function getMostUsedCategory(db, range) {
   };
 }
 
+function getMostUsedRecurringCategory(recurringExpenses, range) {
+  const counts = new Map();
+
+  for (const expense of getRecurringOccurrencesForRange(recurringExpenses, range)) {
+    const key = expense.categoryId ?? "uncategorized";
+    const current = counts.get(key) || {
+      category: expense.categoryName,
+      color: expense.categoryColor,
+      count: 0,
+      amountPaise: 0,
+    };
+
+    current.count += 1;
+    current.amountPaise += expense.amountPaise;
+    counts.set(key, current);
+  }
+
+  return Array.from(counts.values())
+    .sort((first, second) => (
+      second.count - first.count ||
+      second.amountPaise - first.amountPaise ||
+      first.category.localeCompare(second.category)
+    ))[0] || null;
+}
+
 async function getCategoryBreakdown(db, range) {
   const rows = await db
     .prepare(`
@@ -245,6 +371,30 @@ async function getCategoryBreakdown(db, range) {
     amountPaise: toInteger(row.amount_paise),
     color: row.color ?? DEFAULT_CATEGORY_COLOR,
   }));
+}
+
+function mergeRecurringCategoryBreakdown(categoryBreakdown, recurringExpenses, range) {
+  const byCategory = new Map(
+    categoryBreakdown.map((item) => [item.category, { ...item }]),
+  );
+
+  for (const expense of getRecurringOccurrencesForRange(recurringExpenses, range)) {
+    const current = byCategory.get(expense.categoryName) || {
+      category: expense.categoryName,
+      amountPaise: 0,
+      color: expense.categoryColor,
+    };
+
+    current.amountPaise += expense.amountPaise;
+    current.color = current.color || expense.categoryColor;
+    byCategory.set(expense.categoryName, current);
+  }
+
+  return Array.from(byCategory.values())
+    .sort((first, second) => (
+      second.amountPaise - first.amountPaise ||
+      first.category.localeCompare(second.category)
+    ));
 }
 
 async function getDailyTrend(db, range) {
@@ -276,6 +426,21 @@ async function getDailyTrend(db, range) {
   return trend;
 }
 
+function mergeRecurringDailyTrend(dailyTrend, recurringExpenses, range) {
+  const amountByDate = new Map(
+    dailyTrend.map((item) => [item.date, item.amountPaise]),
+  );
+
+  for (const expense of getRecurringOccurrencesForRange(recurringExpenses, range)) {
+    amountByDate.set(expense.date, (amountByDate.get(expense.date) ?? 0) + expense.amountPaise);
+  }
+
+  return dailyTrend.map((item) => ({
+    ...item,
+    amountPaise: amountByDate.get(item.date) ?? 0,
+  }));
+}
+
 async function getMonthlyTrend(db, year) {
   const rows = await db
     .prepare(`
@@ -302,6 +467,18 @@ async function getMonthlyTrend(db, year) {
       amountPaise: amountByMonth.get(month) ?? 0,
     };
   });
+}
+
+function mergeRecurringMonthlyTrend(monthlyTrend, recurringExpenses) {
+  const monthlyRecurringPaise = recurringExpenses.reduce(
+    (total, expense) => total + expense.amountPaise,
+    0,
+  );
+
+  return monthlyTrend.map((item) => ({
+    ...item,
+    amountPaise: item.amountPaise + monthlyRecurringPaise,
+  }));
 }
 
 function mapRecentTransaction(row) {
@@ -358,6 +535,7 @@ export function validateStatsQuery(input) {
 }
 
 export async function getDashboardStats(db, query, options = {}) {
+  const userId = options.userId ?? "personal";
   const now = options.now ?? new Date();
   const today = todayInKolkata(now);
   const weekStartDay = await getWeekStartDay(db);
@@ -374,32 +552,79 @@ export async function getDashboardStats(db, query, options = {}) {
   assertRangeOrder(selectedRange);
   assertRangeOrder(dailyTrendRange);
 
-  const todaySpentPaise = await sumExpensesForRange(db, todayRange);
-  const weekSpentPaise = await sumExpensesForRange(db, weekRange);
-  const monthSpentPaise = await sumExpensesForRange(db, monthRange);
+  const recurringExpenses = await getActiveRecurringExpenses(db, userId);
+  const recurringOccurrences = getRecurringOccurrencesForRange(recurringExpenses, selectedRange);
+  const totalMonthlyRecurringPaise = recurringExpenses.reduce(
+    (total, expense) => total + expense.amountPaise,
+    0,
+  );
+  const todaySpentPaise = await sumExpensesForRange(db, todayRange) +
+    sumRecurringOccurrences(recurringExpenses, todayRange);
+  const weekSpentPaise = await sumExpensesForRange(db, weekRange) +
+    sumRecurringOccurrences(recurringExpenses, weekRange);
+  const monthSpentPaise = await sumExpensesForRange(db, monthRange) +
+    sumRecurringOccurrences(recurringExpenses, monthRange);
   const totals = await getSelectedPeriodTotals(db, selectedRange);
+  const selectedRecurringPaise = recurringOccurrences
+    .reduce((total, expense) => total + expense.amountPaise, 0);
+  const totalExpensePaise = totals.totalExpensePaise + selectedRecurringPaise;
   const dayCount = Math.max(countInclusiveDays(selectedRange.from, selectedRange.to), 1);
-  const biggestExpense = await getBiggestExpense(db, selectedRange);
-  const mostUsedCategory = await getMostUsedCategory(db, selectedRange);
-  const categoryBreakdown = await getCategoryBreakdown(db, selectedRange);
-  const dailyTrend = await getDailyTrend(db, dailyTrendRange);
-  const monthlyTrend = await getMonthlyTrend(db, currentYear);
+  const biggestExpense = [
+    await getBiggestExpense(db, selectedRange),
+    getBiggestRecurringExpense(recurringExpenses, selectedRange),
+  ]
+    .filter(Boolean)
+    .sort((first, second) => second.amountPaise - first.amountPaise)[0] || null;
+  const mostUsedCategory = [
+    await getMostUsedCategory(db, selectedRange),
+    getMostUsedRecurringCategory(recurringExpenses, selectedRange),
+  ]
+    .filter(Boolean)
+    .sort((first, second) => (
+      second.count - first.count ||
+      first.category.localeCompare(second.category)
+    ))[0] || null;
+  const categoryBreakdown = mergeRecurringCategoryBreakdown(
+    await getCategoryBreakdown(db, selectedRange),
+    recurringExpenses,
+    selectedRange,
+  );
+  const dailyTrend = mergeRecurringDailyTrend(
+    await getDailyTrend(db, dailyTrendRange),
+    recurringExpenses,
+    dailyTrendRange,
+  );
+  const monthlyTrend = mergeRecurringMonthlyTrend(
+    await getMonthlyTrend(db, currentYear),
+    recurringExpenses,
+  );
   const recentTransactions = await getRecentTransactions(db);
 
   return {
     todaySpentPaise,
     weekSpentPaise,
     monthSpentPaise,
+    totalMonthlyRecurringPaise,
+    selectedRecurringPaise,
     totalIncomePaise: totals.totalIncomePaise,
-    totalExpensePaise: totals.totalExpensePaise,
-    netBalancePaise: totals.netBalancePaise,
-    averageDailySpendPaise: Math.round(totals.totalExpensePaise / dayCount),
-    transactionCount: totals.transactionCount,
+    totalExpensePaise,
+    netBalancePaise: totals.totalIncomePaise - totalExpensePaise,
+    averageDailySpendPaise: Math.round(totalExpensePaise / dayCount),
+    transactionCount: totals.transactionCount + recurringOccurrences.length,
     biggestExpense,
     mostUsedCategory,
     categoryBreakdown,
     dailyTrend,
     monthlyTrend,
+    recurringExpenses: recurringExpenses.map((expense) => ({
+      id: expense.id,
+      title: expense.title,
+      amountPaise: expense.amountPaise,
+      categoryId: expense.categoryId,
+      categoryName: expense.categoryName,
+      categoryColor: expense.categoryColor,
+      billingDay: expense.billingDay,
+    })),
     recentTransactions,
   };
 }

@@ -129,6 +129,12 @@ export const api = {
   updateExpense: (id, payload) => jsonRequest(`/api/expenses/${id}`, "PUT", payload),
   deleteExpense: (id) => request(`/api/expenses/${id}`, { method: "DELETE" }),
 
+  getRecurringExpenses: () => request("/api/recurring-expenses"),
+  getRecurringExpense: (id) => request(`/api/recurring-expenses/${id}`),
+  createRecurringExpense: (payload) => jsonRequest("/api/recurring-expenses", "POST", payload),
+  updateRecurringExpense: (id, payload) => jsonRequest(`/api/recurring-expenses/${id}`, "PUT", payload),
+  deleteRecurringExpense: (id) => request(`/api/recurring-expenses/${id}`, { method: "DELETE" }),
+
   getCategories: (query) => request(withQuery("/api/categories", query)),
   createCategory: (payload) => jsonRequest("/api/categories", "POST", payload),
   updateCategory: (id, payload) => jsonRequest(`/api/categories/${id}`, "PUT", payload),

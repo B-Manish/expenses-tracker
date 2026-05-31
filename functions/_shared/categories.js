@@ -154,8 +154,12 @@ async function assertUniqueCategoryName(db, name, ignoredId = null) {
 
 async function getCategoryUsageCount(db, id) {
   const row = await db
-    .prepare("SELECT COUNT(*) AS count FROM transactions WHERE category_id = ?")
-    .bind(id)
+    .prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM transactions WHERE category_id = ?) +
+        (SELECT COUNT(*) FROM recurring_expenses WHERE category_id = ?) AS count
+    `)
+    .bind(id, id)
     .first();
 
   return row?.count ?? 0;
@@ -258,7 +262,7 @@ export async function updateCategory(db, id, category) {
     const usageCount = await getCategoryUsageCount(db, id);
 
     if (usageCount > 0) {
-      throw conflict("Category type cannot be changed while used by transactions");
+      throw conflict("Category type cannot be changed while used by expenses");
     }
   }
 

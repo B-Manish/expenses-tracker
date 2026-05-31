@@ -10,6 +10,7 @@ import EditExpense from "./pages/EditExpense.jsx";
 import Expenses from "./pages/Expenses.jsx";
 import Login from "./pages/Login.jsx";
 import PaymentMethods from "./pages/PaymentMethods.jsx";
+import RecurringExpenses from "./pages/RecurringExpenses.jsx";
 import Settings from "./pages/Settings.jsx";
 import { AuthProvider, useAuth } from "./services/auth.js";
 
@@ -84,6 +85,7 @@ function AppRoutes() {
           <Route path="/expenses" element={<Expenses />} />
           <Route path="/expenses/new" element={<AddExpense />} />
           <Route path="/expenses/:id/edit" element={<EditExpense />} />
+          <Route path="/recurring-expenses" element={<RecurringExpenses />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/payment-methods" element={<PaymentMethods />} />
           <Route path="/settings" element={<Settings />} />

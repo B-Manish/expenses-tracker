@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  CalendarClock,
   CalendarDays,
   CircleDollarSign,
   CreditCard,
@@ -104,6 +105,34 @@ function RecentTransactions({ items = [] }) {
           <span className={transaction.type === "INCOME" ? "amount income-text" : "amount expense-text"}>
             {transaction.type === "INCOME" ? "+" : "-"}
             {formatCurrencyFromPaise(transaction.amountPaise)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RecurringExpensesPreview({ items = [] }) {
+  if (!items.length) {
+    return <EmptyState title="No fixed monthly expenses" message="Active recurring expenses will appear here." />;
+  }
+
+  return (
+    <ul className="item-list">
+      {items.slice(0, 5).map((expense) => (
+        <li className="list-row" key={expense.id}>
+          <div className="list-icon" aria-hidden="true">
+            <CalendarClock size={18} />
+          </div>
+          <div className="list-content">
+            <strong>{expense.title || "Untitled recurring expense"}</strong>
+            <span>
+              Day {expense.billingDay}
+              {expense.categoryName ? ` - ${expense.categoryName}` : ""}
+            </span>
+          </div>
+          <span className="amount expense-text">
+            {formatCurrencyFromPaise(expense.amountPaise)}
           </span>
         </li>
       ))}
@@ -244,6 +273,13 @@ export default function Dashboard() {
       label: "This month",
       tone: "expense",
       value: formatCurrencyFromPaise(stats.monthSpentPaise),
+    },
+    {
+      detail: "Active fixed monthly costs",
+      icon: CalendarClock,
+      label: "Recurring",
+      tone: "expense",
+      value: formatCurrencyFromPaise(stats.totalMonthlyRecurringPaise),
     },
     {
       detail: "Selected period",
@@ -392,6 +428,21 @@ export default function Dashboard() {
         </div>
 
         <RecentTransactions items={stats.recentTransactions || []} />
+      </section>
+
+      <section className="panel" aria-labelledby="fixed-expenses-title">
+        <div className="panel-header">
+          <div>
+            <h2 id="fixed-expenses-title">Fixed monthly expenses</h2>
+            <p>Active recurring expenses included in current monthly totals.</p>
+          </div>
+          <Link className="text-link" to="/recurring-expenses">
+            Manage
+            <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+
+        <RecurringExpensesPreview items={stats.recurringExpenses || []} />
       </section>
     </section>
   );

@@ -1,6 +1,7 @@
 import { errorResponse, internalServerError, unauthorized } from "./errors.js";
 
 export const SESSION_COOKIE_NAME = "expenses_session";
+export const DEFAULT_USER_ID = "personal";
 
 const SESSION_DURATION_SECONDS = 7 * 24 * 60 * 60;
 const encoder = new TextEncoder();
@@ -126,6 +127,7 @@ export async function createSessionCookie(request, env) {
   const expiresAt = issuedAt + SESSION_DURATION_SECONDS;
   const payload = base64UrlEncodeText(
     JSON.stringify({
+      userId: DEFAULT_USER_ID,
       iat: issuedAt,
       exp: expiresAt,
     }),
@@ -144,6 +146,12 @@ export async function createSessionCookie(request, env) {
   ]
     .filter(Boolean)
     .join("; ");
+}
+
+export function getSessionUserId(session) {
+  return typeof session?.userId === "string" && session.userId.trim()
+    ? session.userId.trim()
+    : DEFAULT_USER_ID;
 }
 
 export function createClearSessionCookie(request) {

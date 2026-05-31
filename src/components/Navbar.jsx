@@ -1,5 +1,6 @@
 import {
   CreditCard,
+  CalendarClock,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -15,6 +16,7 @@ import { NavLink } from "react-router-dom";
 const links = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/expenses", label: "Expenses", icon: ReceiptText },
+  { to: "/recurring-expenses", label: "Recurring", icon: CalendarClock },
   { to: "/expenses/new", label: "Add", icon: PlusCircle },
   { to: "/categories", label: "Categories", icon: Tags },
   { to: "/payment-methods", label: "Payments", icon: CreditCard },
