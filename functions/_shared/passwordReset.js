@@ -329,9 +329,32 @@ export async function sendPasswordResetCode(env, email, code) {
   });
 
   if (!response.ok) {
+    let providerMessage = "Could not send verification code.";
+
+    try {
+      const contentType = response.headers.get("content-type") || "";
+
+      if (contentType.toLowerCase().includes("application/json")) {
+        const payload = await response.json();
+        const message = payload?.message || payload?.error?.message || payload?.error;
+
+        if (typeof message === "string" && message.trim()) {
+          providerMessage = message.trim();
+        }
+      } else {
+        const text = await response.text();
+
+        if (text.trim()) {
+          providerMessage = text.trim();
+        }
+      }
+    } catch {
+      // Keep the fallback message when the provider response cannot be parsed.
+    }
+
     return {
       ok: false,
-      message: "Could not send verification code.",
+      message: providerMessage,
       status: 502,
     };
   }
