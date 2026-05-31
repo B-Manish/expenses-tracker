@@ -21,6 +21,36 @@ export function validatePassword(password) {
   return null;
 }
 
+export function validateNewPassword(password) {
+  if (typeof password !== "string" || password.trim().length === 0) {
+    return "New password is required.";
+  }
+
+  if (password.trim().length < 8) {
+    return "Password must be at least 8 characters.";
+  }
+
+  if (password.length > 200) {
+    return "Password must be 200 characters or less.";
+  }
+
+  return null;
+}
+
+export function validatePasswordConfirmation(password, confirmPassword) {
+  const passwordError = validateNewPassword(password);
+
+  if (passwordError) {
+    return passwordError;
+  }
+
+  if (password !== confirmPassword) {
+    return "Passwords do not match.";
+  }
+
+  return null;
+}
+
 export function validateResetCode(code) {
   if (typeof code !== "string" || code.trim().length === 0) {
     return "Verification code is required.";

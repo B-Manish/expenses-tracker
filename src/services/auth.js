@@ -83,16 +83,11 @@ export function AuthProvider({ children }) {
 
   const requestPasswordReset = useCallback(() => api.requestPasswordReset(), []);
 
-  const verifyPasswordReset = useCallback(async (code) => {
-    const session = await api.verifyPasswordReset(code);
+  const verifyPasswordReset = useCallback((code) => api.verifyPasswordReset(code), []);
 
-    setState({
-      status: session?.authenticated ? "authenticated" : "unauthenticated",
-      error: null,
-    });
-
-    return session;
-  }, []);
+  const completePasswordReset = useCallback((token, password) => (
+    api.completePasswordReset(token, password)
+  ), []);
 
   const logout = useCallback(async () => {
     let logoutError = null;
@@ -116,11 +111,21 @@ export function AuthProvider({ children }) {
     isChecking: state.status === "checking",
     login,
     logout,
+    completePasswordReset,
     requestPasswordReset,
     refreshAuth,
     status: state.status,
     verifyPasswordReset,
-  }), [login, logout, requestPasswordReset, refreshAuth, state.error, state.status, verifyPasswordReset]);
+  }), [
+    completePasswordReset,
+    login,
+    logout,
+    requestPasswordReset,
+    refreshAuth,
+    state.error,
+    state.status,
+    verifyPasswordReset,
+  ]);
 
   return createElement(AuthContext.Provider, { value }, children);
 }

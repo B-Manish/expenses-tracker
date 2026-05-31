@@ -5,6 +5,7 @@ import {
   deletePasswordResetCode,
   getPasswordResetEmailConfigStatus,
   getPasswordResetRecipient,
+  isPasswordResetConfigured,
   maskEmail,
   recordPasswordResetRequest,
   sendPasswordResetCode,
@@ -18,7 +19,7 @@ export async function onRequest(context) {
     return methodNotAllowed(["POST"]);
   }
 
-  if (!isAuthConfigured(env)) {
+  if (!isAuthConfigured(env) || !isPasswordResetConfigured(env)) {
     return failure("Authentication is not configured", 500);
   }
 

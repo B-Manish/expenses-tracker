@@ -1,11 +1,13 @@
-import { createSessionCookie, isAuthConfigured } from "../../../_shared/auth.js";
+import { isAuthConfigured } from "../../../_shared/auth.js";
 import { failure, methodNotAllowed, success } from "../../../_shared/json.js";
 import { readJsonBody } from "../../../_shared/http.js";
 import {
   clearPasswordResetVerifyFailures,
+  createResetPasswordToken,
   consumePasswordResetCode,
   getPasswordResetRecipient,
   getPasswordResetVerifyThrottleStatus,
+  isPasswordResetConfigured,
   normalizeResetCode,
   recordPasswordResetVerifyFailure,
 } from "../../../_shared/passwordReset.js";
@@ -17,7 +19,7 @@ export async function onRequest(context) {
     return methodNotAllowed(["POST"]);
   }
 
-  if (!isAuthConfigured(env)) {
+  if (!isAuthConfigured(env) || !isPasswordResetConfigured(env)) {
     return failure("Authentication is not configured", 500);
   }
 
@@ -68,15 +70,13 @@ export async function onRequest(context) {
   clearPasswordResetVerifyFailures(request);
 
   try {
-    const sessionCookie = await createSessionCookie(request, env);
+    const resetSession = await createResetPasswordToken(env, getPasswordResetRecipient(env));
 
-    return success(
-      { authenticated: true },
-      200,
-      {
-        "set-cookie": sessionCookie,
-      },
-    );
+    return success({
+      resetToken: resetSession.token,
+      expiresInMinutes: resetSession.expiresInMinutes,
+      verified: true,
+    });
   } catch {
     return failure("Authentication is not configured", 500);
   }

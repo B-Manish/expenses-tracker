@@ -117,6 +117,7 @@ export const api = {
   login: (password) => jsonRequest("/api/auth/login", "POST", { password }),
   requestPasswordReset: () => jsonRequest("/api/auth/password-reset/request", "POST", {}),
   verifyPasswordReset: (code) => jsonRequest("/api/auth/password-reset/verify", "POST", { code }),
+  completePasswordReset: (token, password) => jsonRequest("/api/auth/password-reset/complete", "POST", { token, password }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),
 

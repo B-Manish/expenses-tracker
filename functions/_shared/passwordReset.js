@@ -5,6 +5,7 @@ export const DEFAULT_RESET_EMAIL_TO = "batchumanish@gmail.com";
 const CODE_LENGTH = 6;
 const CODE_TTL_MINUTES = 10;
 const CODE_TTL_MS = CODE_TTL_MINUTES * 60 * 1000;
+const RESET_TOKEN_TTL_MINUTES = 15;
 const RESET_REQUEST_COOLDOWN_MS = 60 * 1000;
 const RESET_REQUEST_WINDOW_MS = 60 * 60 * 1000;
 const RESET_REQUEST_MAX_ATTEMPTS = 5;
@@ -32,6 +33,38 @@ function toHex(bytes) {
   return Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function base64UrlEncodeBytes(bytes) {
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+}
+
+function base64UrlEncodeText(value) {
+  return base64UrlEncodeBytes(encoder.encode(value));
+}
+
+function base64UrlDecodeText(value) {
+  const padded = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(
+    Math.ceil(value.length / 4) * 4,
+    "=",
+  );
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  return new TextDecoder().decode(bytes);
 }
 
 async function hmacSha256(value, secret) {
@@ -71,6 +104,15 @@ export function getPasswordResetRecipient(env) {
     : "";
 
   return configured || DEFAULT_RESET_EMAIL_TO;
+}
+
+export function isPasswordResetConfigured(env) {
+  return Boolean(
+    env?.APP_PASSWORD &&
+      typeof env.APP_PASSWORD === "string" &&
+      env?.SESSION_SECRET &&
+      typeof env.SESSION_SECRET === "string",
+  );
 }
 
 export function maskEmail(email) {
@@ -291,6 +333,93 @@ export async function consumePasswordResetCode(env, email, code, now = new Date(
     .run();
 
   return { ok: true };
+}
+
+export async function createResetPasswordToken(env, email) {
+  const secret = getSessionSecret(env);
+
+  if (!secret) {
+    throw new Error("SESSION_SECRET is not configured");
+  }
+
+  const issuedAt = Math.floor(Date.now() / 1000);
+  const expiresAt = issuedAt + (RESET_TOKEN_TTL_MINUTES * 60);
+  const payload = base64UrlEncodeText(
+    JSON.stringify({
+      purpose: "password-reset",
+      email,
+      iat: issuedAt,
+      exp: expiresAt,
+    }),
+  );
+  const signature = await hmacSha256(payload, secret);
+
+  return {
+    token: `${payload}.${signature}`,
+    expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
+  };
+}
+
+export async function consumeResetPasswordToken(env, token, now = Math.floor(Date.now() / 1000)) {
+  const secret = getSessionSecret(env);
+
+  if (!secret) {
+    return {
+      ok: false,
+      message: "Authentication is not configured",
+      status: 500,
+    };
+  }
+
+  const [payload, signature, extra] = typeof token === "string" ? token.split(".") : [];
+
+  if (!payload || !signature || extra) {
+    return {
+      ok: false,
+      message: "Reset session is invalid or expired",
+      status: 401,
+    };
+  }
+
+  const expectedSignature = await hmacSha256(payload, secret);
+
+  if (signature !== expectedSignature) {
+    return {
+      ok: false,
+      message: "Reset session is invalid or expired",
+      status: 401,
+    };
+  }
+
+  let parsed;
+
+  try {
+    parsed = JSON.parse(base64UrlDecodeText(payload));
+  } catch {
+    return {
+      ok: false,
+      message: "Reset session is invalid or expired",
+      status: 401,
+    };
+  }
+
+  if (
+    parsed?.purpose !== "password-reset" ||
+    typeof parsed?.email !== "string" ||
+    !Number.isInteger(parsed?.exp) ||
+    parsed.exp <= now
+  ) {
+    return {
+      ok: false,
+      message: "Reset session is invalid or expired",
+      status: 401,
+    };
+  }
+
+  return {
+    ok: true,
+    email: parsed.email,
+  };
 }
 
 export async function sendPasswordResetCode(env, email, code) {

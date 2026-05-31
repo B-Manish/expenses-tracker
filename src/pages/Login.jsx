@@ -6,6 +6,7 @@ import { useAuth } from "../services/auth.js";
 
 export default function Login() {
   const {
+    completePasswordReset,
     error,
     login,
     refreshAuth,
@@ -23,8 +24,11 @@ export default function Login() {
   }
 
   async function handleVerifyReset(code) {
-    await verifyPasswordReset(code);
-    navigate("/", { replace: true });
+    return verifyPasswordReset(code);
+  }
+
+  async function handleCompleteReset(token, password) {
+    await completePasswordReset(token, password);
   }
 
   return (
@@ -52,6 +56,7 @@ export default function Login() {
         {notice ? <p className="notice-message">{notice}</p> : null}
 
         <LoginForm
+          onCompleteReset={handleCompleteReset}
           onRequestReset={requestPasswordReset}
           onSubmit={handleLogin}
           onVerifyReset={handleVerifyReset}

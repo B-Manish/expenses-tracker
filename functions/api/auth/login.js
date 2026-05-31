@@ -1,4 +1,5 @@
 import { createSessionCookie, isAuthConfigured } from "../../_shared/auth.js";
+import { verifyAppPassword } from "../../_shared/appPassword.js";
 import { failure, methodNotAllowed, success } from "../../_shared/json.js";
 import { readJsonBody } from "../../_shared/http.js";
 import {
@@ -26,6 +27,10 @@ export async function onRequest(context) {
     return failure("Authentication is not configured", 500);
   }
 
+  if (!env.DB) {
+    return failure("Database binding is not configured", 500);
+  }
+
   const throttleStatus = getThrottleStatus(request);
 
   if (throttleStatus.blocked) {
@@ -46,7 +51,9 @@ export async function onRequest(context) {
     return failure("Password is required", 400);
   }
 
-  if (password !== env.APP_PASSWORD) {
+  const passwordMatches = await verifyAppPassword(env.DB, env, password);
+
+  if (!passwordMatches) {
     const failureStatus = recordFailedLogin(request);
 
     if (failureStatus.blocked) {

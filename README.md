@@ -11,6 +11,7 @@ A personal expense and income tracker built for the Cloudflare free tier.
 - App-password authentication with signed HttpOnly cookies
 
 The app stores money as integer paise and uses `Asia/Kolkata` for user-facing date calculations.
+The initial login password comes from `APP_PASSWORD`. If you later reset the password through the forgot-password flow, the new password is stored as a hash in D1 and takes precedence over the original environment value.
 
 ## Local Development
 
@@ -127,6 +128,7 @@ After deployment, verify:
 - `GET /api/expenses` returns `401` when logged out.
 - Login works with the configured `APP_PASSWORD`.
 - Forgot password sends a verification code to the configured reset email.
+- After password reset, login works with the newly saved password from D1.
 - Add, edit, and delete an expense.
 - Add, edit, and delete income.
 - Add, edit, and delete unused custom categories.
