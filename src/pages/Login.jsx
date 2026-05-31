@@ -5,13 +5,25 @@ import LoginForm from "../components/LoginForm.jsx";
 import { useAuth } from "../services/auth.js";
 
 export default function Login() {
-  const { error, login, refreshAuth, status } = useAuth();
+  const {
+    error,
+    login,
+    refreshAuth,
+    requestPasswordReset,
+    status,
+    verifyPasswordReset,
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const notice = location.state?.notice;
 
   async function handleLogin(password) {
     await login(password);
+    navigate("/", { replace: true });
+  }
+
+  async function handleVerifyReset(code) {
+    await verifyPasswordReset(code);
     navigate("/", { replace: true });
   }
 
@@ -39,7 +51,11 @@ export default function Login() {
 
         {notice ? <p className="notice-message">{notice}</p> : null}
 
-        <LoginForm onSubmit={handleLogin} />
+        <LoginForm
+          onRequestReset={requestPasswordReset}
+          onSubmit={handleLogin}
+          onVerifyReset={handleVerifyReset}
+        />
       </section>
     </main>
   );

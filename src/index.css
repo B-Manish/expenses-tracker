@@ -1140,6 +1140,26 @@ h2 {
   width: 100%;
 }
 
+.login-secondary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.login-secondary-actions .text-link {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+}
+
+.code-input {
+  text-align: center;
+  letter-spacing: 0.16em;
+  font-weight: 850;
+}
+
 .transaction-detail {
   display: flex;
   align-items: flex-start;

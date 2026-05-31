@@ -46,6 +46,16 @@ npx wrangler pages dev dist --d1 DB=<DATABASE_ID>
 
 For local auth testing, set `APP_PASSWORD` and `SESSION_SECRET` in `.dev.vars`. This file is ignored by git.
 
+Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
+
+```bash
+RESEND_API_KEY=your-resend-api-key
+RESET_EMAIL_FROM=Expense Tracker <verified-sender@example.com>
+RESET_EMAIL_TO=batchumanish@gmail.com
+```
+
+`RESET_EMAIL_TO` is optional and defaults to `batchumanish@gmail.com`.
+
 ## Cloudflare Deployment
 
 This project is configured for Cloudflare Pages with Vite, Pages Functions, and a D1 binding named `DB`.
@@ -94,6 +104,9 @@ npx wrangler d1 migrations apply expenses-tracker-db --remote
 
 - `APP_PASSWORD`
 - `SESSION_SECRET`
+- `RESEND_API_KEY`
+- `RESET_EMAIL_FROM`
+- `RESET_EMAIL_TO` optional; defaults to `batchumanish@gmail.com`
 
 Do not put secret values in React source files, `wrangler.toml`, or committed documentation.
 
@@ -113,6 +126,7 @@ After deployment, verify:
 - `GET /api/health` returns success.
 - `GET /api/expenses` returns `401` when logged out.
 - Login works with the configured `APP_PASSWORD`.
+- Forgot password sends a verification code to the configured reset email.
 - Add, edit, and delete an expense.
 - Add, edit, and delete income.
 - Add, edit, and delete unused custom categories.

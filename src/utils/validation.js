@@ -21,6 +21,18 @@ export function validatePassword(password) {
   return null;
 }
 
+export function validateResetCode(code) {
+  if (typeof code !== "string" || code.trim().length === 0) {
+    return "Verification code is required.";
+  }
+
+  if (!/^\d{6}$/.test(code.replace(/\s+/g, ""))) {
+    return "Enter the 6-digit verification code.";
+  }
+
+  return null;
+}
+
 const SUPPORTED_THEMES = ["system", "light", "dark"];
 const SUPPORTED_WEEK_START_DAYS = [
   "SUNDAY",

@@ -81,6 +81,19 @@ export function AuthProvider({ children }) {
     return session;
   }, []);
 
+  const requestPasswordReset = useCallback(() => api.requestPasswordReset(), []);
+
+  const verifyPasswordReset = useCallback(async (code) => {
+    const session = await api.verifyPasswordReset(code);
+
+    setState({
+      status: session?.authenticated ? "authenticated" : "unauthenticated",
+      error: null,
+    });
+
+    return session;
+  }, []);
+
   const logout = useCallback(async () => {
     let logoutError = null;
 
@@ -103,9 +116,11 @@ export function AuthProvider({ children }) {
     isChecking: state.status === "checking",
     login,
     logout,
+    requestPasswordReset,
     refreshAuth,
     status: state.status,
-  }), [login, logout, refreshAuth, state.error, state.status]);
+    verifyPasswordReset,
+  }), [login, logout, requestPasswordReset, refreshAuth, state.error, state.status, verifyPasswordReset]);
 
   return createElement(AuthContext.Provider, { value }, children);
 }
