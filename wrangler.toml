@@ -4,5 +4,5 @@ pages_build_output_dir = "dist"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "expenses-tracker-db"
-database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+database_name = "expenses-db"
+database_id = "930109c1-d8de-4632-bc42-b7e3542351c5"
