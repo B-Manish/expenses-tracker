@@ -10,13 +10,13 @@ import { formatCurrencyFromPaise } from "../utils/currency.js";
 import EmptyState from "./EmptyState.jsx";
 
 const FALLBACK_COLORS = [
-  "#2563eb",
-  "#0f766e",
-  "#b42318",
-  "#a15c07",
+  "#3b82f6",
+  "#10b981",
+  "#f43f5e",
+  "#f59e0b",
   "#6366f1",
-  "#0891b2",
-  "#be185d",
+  "#06b6d4",
+  "#ec4899",
 ];
 
 function toAmount(value) {
@@ -70,7 +70,7 @@ export default function CategoryChart({ items = [] }) {
               innerRadius="58%"
               nameKey="category"
               outerRadius="84%"
-              paddingAngle={2}
+              paddingAngle={3}
             >
               {data.map((item) => (
                 <Cell fill={item.color} key={item.category} />

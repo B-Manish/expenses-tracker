@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import { useAuth } from "../services/auth.js";
 import {
@@ -269,12 +270,12 @@ export default function Settings() {
 
   return (
     <section className="page-section" aria-labelledby="settings-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Account</p>
-          <h1 id="settings-title">Settings</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title="Settings"
+        titleId="settings-title"
+        description="Manage local preferences and account session controls."
+      />
 
       {loadState.status === "fallback" ? (
         <ErrorState

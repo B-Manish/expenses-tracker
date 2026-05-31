@@ -1,30 +1,23 @@
 import { CalendarDays, Edit3, ReceiptText, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatCurrencyFromPaise } from "../utils/currency.js";
 import { formatDisplayDate } from "../utils/dateUtils.js";
-
-function amountClassName(type) {
-  return type === "INCOME" ? "amount income-text" : "amount expense-text";
-}
-
-function amountSign(type) {
-  return type === "INCOME" ? "+" : "-";
-}
+import AmountText from "./AmountText.jsx";
+import CategoryBadge from "./CategoryBadge.jsx";
 
 function TypeBadge({ type }) {
-  return <span className={type === "INCOME" ? "type-badge income" : "type-badge expense"}>{type}</span>;
+  return (
+    <span className={type === "INCOME" ? "type-badge income" : "type-badge expense"}>
+      {type === "INCOME" ? "Income" : "Expense"}
+    </span>
+  );
 }
 
 function CategoryLabel({ transaction }) {
   return (
-    <span className="category-inline">
-      <span
-        aria-hidden="true"
-        className="category-color"
-        style={{ backgroundColor: transaction.category?.color || "#64748b" }}
-      />
-      {transaction.categoryName || "Uncategorized"}
-    </span>
+    <CategoryBadge
+      color={transaction.category?.color || "#64748b"}
+      label={transaction.categoryName || "Uncategorized"}
+    />
   );
 }
 
@@ -82,10 +75,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
                 <td>{transaction.paymentMethodName || "Not set"}</td>
                 <td>{formatDisplayDate(transaction.transactionDate)}</td>
                 <td>
-                  <span className={amountClassName(transaction.type)}>
-                    {amountSign(transaction.type)}
-                    {formatCurrencyFromPaise(transaction.amountPaise)}
-                  </span>
+                  <AmountText amountPaise={transaction.amountPaise} type={transaction.type} />
                 </td>
                 <td>
                   <TransactionActions onDeleteRequest={onDeleteRequest} transaction={transaction} />
@@ -131,10 +121,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
             </dl>
 
             <div className="transaction-card-footer">
-              <span className={amountClassName(transaction.type)}>
-                {amountSign(transaction.type)}
-                {formatCurrencyFromPaise(transaction.amountPaise)}
-              </span>
+              <AmountText amountPaise={transaction.amountPaise} type={transaction.type} />
               <TransactionActions onDeleteRequest={onDeleteRequest} transaction={transaction} />
             </div>
           </li>

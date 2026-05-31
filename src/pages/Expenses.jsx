@@ -7,6 +7,7 @@ import ErrorState from "../components/ErrorState.jsx";
 import ExpenseTable from "../components/ExpenseTable.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import { isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
@@ -368,16 +369,18 @@ export default function Expenses() {
 
   return (
     <section className="page-section" aria-labelledby="expenses-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Transactions</p>
-          <h1 id="expenses-title">Expenses and income</h1>
-        </div>
-        <Link className="button primary-button" to="/expenses/new">
-          <PlusCircle size={18} aria-hidden="true" />
-          Add transaction
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Transactions"
+        title="Expenses and income"
+        titleId="expenses-title"
+        description="Search, filter, edit, and keep your ledger tidy."
+        actions={(
+          <Link className="button primary-button" to="/expenses/new">
+            <PlusCircle size={18} aria-hidden="true" />
+            Add transaction
+          </Link>
+        )}
+      />
 
       {notice ? (
         <p className="success-message" role="status">

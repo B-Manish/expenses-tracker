@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../services/auth.js";
 import { getErrorMessage } from "../utils/validation.js";
-import Navbar from "./Navbar.jsx";
+import AppShell from "./AppShell.jsx";
 
 export default function Layout() {
   const { logout } = useAuth();
@@ -28,11 +28,8 @@ export default function Layout() {
   }
 
   return (
-    <div className="app-shell">
-      <Navbar isLoggingOut={isLoggingOut} onLogout={handleLogout} />
-      <main className="app-main">
-        <Outlet />
-      </main>
-    </div>
+    <AppShell isLoggingOut={isLoggingOut} onLogout={handleLogout}>
+      <Outlet />
+    </AppShell>
   );
 }

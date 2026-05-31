@@ -5,6 +5,7 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import {
   getErrorMessage,
@@ -234,12 +235,12 @@ export default function PaymentMethods() {
 
   return (
     <section className="page-section narrow-section" aria-labelledby="payment-methods-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Setup</p>
-          <h1 id="payment-methods-title">Payment methods</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Setup"
+        title="Payment methods"
+        titleId="payment-methods-title"
+        description="Keep cards, cash, UPI, and other payment labels consistent."
+      />
 
       {notice ? (
         <p className="success-message" role="status">

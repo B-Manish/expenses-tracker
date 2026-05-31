@@ -5,6 +5,7 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import {
   getErrorMessage,
@@ -323,12 +324,12 @@ export default function Categories() {
 
   return (
     <section className="page-section" aria-labelledby="categories-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Setup</p>
-          <h1 id="categories-title">Categories</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Setup"
+        title="Categories"
+        titleId="categories-title"
+        description="Organize transactions with readable income and expense buckets."
+      />
 
       {notice ? (
         <p className="success-message" role="status">

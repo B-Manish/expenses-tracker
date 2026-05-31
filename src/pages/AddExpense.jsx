@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import ErrorState from "../components/ErrorState.jsx";
 import ExpenseForm from "../components/ExpenseForm.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import { getErrorMessage } from "../utils/validation.js";
 
@@ -147,16 +148,18 @@ export default function AddExpense() {
 
   return (
     <section className="page-section narrow-section" aria-labelledby="add-expense-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Transactions</p>
-          <h1 id="add-expense-title">Add transaction</h1>
-        </div>
-        <Link className="button secondary-button" to="/expenses">
-          <ArrowLeft size={18} aria-hidden="true" />
-          Back
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Transactions"
+        title="Add transaction"
+        titleId="add-expense-title"
+        description="Record an expense or income entry with category, payment, and notes."
+        actions={(
+          <Link className="button secondary-button" to="/expenses">
+            <ArrowLeft size={18} aria-hidden="true" />
+            Back
+          </Link>
+        )}
+      />
 
       <ExpenseForm
         categories={referenceState.categories}

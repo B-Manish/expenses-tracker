@@ -5,6 +5,7 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import ExpenseForm from "../components/ExpenseForm.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import { getErrorMessage } from "../utils/validation.js";
 
@@ -156,16 +157,18 @@ export default function EditExpense() {
 
   return (
     <section className="page-section narrow-section" aria-labelledby="edit-expense-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Transactions</p>
-          <h1 id="edit-expense-title">Edit transaction</h1>
-        </div>
-        <Link className="button secondary-button" to="/expenses">
-          <ArrowLeft size={18} aria-hidden="true" />
-          Back
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Transactions"
+        title="Edit transaction"
+        titleId="edit-expense-title"
+        description="Update the amount, category, date, and context for this entry."
+        actions={(
+          <Link className="button secondary-button" to="/expenses">
+            <ArrowLeft size={18} aria-hidden="true" />
+            Back
+          </Link>
+        )}
+      />
 
       {transaction ? (
         <ExpenseForm

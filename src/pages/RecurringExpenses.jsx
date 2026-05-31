@@ -5,6 +5,7 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
 import { formatCurrencyFromPaise, paiseToRupeesInputValue } from "../utils/currency.js";
 import {
@@ -282,12 +283,12 @@ export default function RecurringExpenses() {
 
   return (
     <section className="page-section" aria-labelledby="recurring-expenses-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Fixed monthly costs</p>
-          <h1 id="recurring-expenses-title">Recurring expenses</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Fixed monthly costs"
+        title="Recurring expenses"
+        titleId="recurring-expenses-title"
+        description="Track subscriptions, rent, bills, and other predictable monthly costs."
+      />
 
       {notice ? (
         <p className="success-message" role="status">

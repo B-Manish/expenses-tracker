@@ -16,9 +16,12 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import CategoryChart from "../components/CategoryChart.jsx";
+import AmountText from "../components/AmountText.jsx";
+import DashboardCard from "../components/DashboardCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import StatCard from "../components/StatCard.jsx";
 import TrendChart from "../components/TrendChart.jsx";
 import { ApiError, api } from "../services/api.js";
@@ -102,10 +105,7 @@ function RecentTransactions({ items = [] }) {
               {transaction.categoryName ? ` - ${transaction.categoryName}` : ""}
             </span>
           </div>
-          <span className={transaction.type === "INCOME" ? "amount income-text" : "amount expense-text"}>
-            {transaction.type === "INCOME" ? "+" : "-"}
-            {formatCurrencyFromPaise(transaction.amountPaise)}
-          </span>
+          <AmountText amountPaise={transaction.amountPaise} type={transaction.type} />
         </li>
       ))}
     </ul>
@@ -131,9 +131,7 @@ function RecurringExpensesPreview({ items = [] }) {
               {expense.categoryName ? ` - ${expense.categoryName}` : ""}
             </span>
           </div>
-          <span className="amount expense-text">
-            {formatCurrencyFromPaise(expense.amountPaise)}
-          </span>
+          <AmountText amountPaise={expense.amountPaise} showSign={false} type="EXPENSE" />
         </li>
       ))}
     </ul>
@@ -275,13 +273,6 @@ export default function Dashboard() {
       value: formatCurrencyFromPaise(stats.monthSpentPaise),
     },
     {
-      detail: "Active fixed monthly costs",
-      icon: CalendarClock,
-      label: "Recurring",
-      tone: "expense",
-      value: formatCurrencyFromPaise(stats.totalMonthlyRecurringPaise),
-    },
-    {
       detail: "Selected period",
       icon: TrendingUp,
       label: "Total income",
@@ -303,15 +294,24 @@ export default function Dashboard() {
       value: formatSignedCurrencyFromPaise(stats.netBalancePaise),
     },
     {
-      detail: "Selected period",
-      icon: PiggyBank,
-      label: "Daily average",
-      tone: "neutral",
-      value: formatCurrencyFromPaise(stats.averageDailySpendPaise),
+      detail: "Active fixed monthly costs",
+      icon: CalendarClock,
+      label: "Recurring",
+      tone: "expense",
+      value: formatCurrencyFromPaise(stats.totalMonthlyRecurringPaise),
     },
     {
+      detail: "Selected period",
+      icon: ReceiptText,
+      label: "Transactions",
+      tone: "neutral",
+      value: formatCount(stats.transactionCount),
+    },
+  ];
+  const insights = [
+    {
       detail: biggestExpense
-        ? `${biggestExpense.title || "Untitled"} - ${formatDisplayDate(biggestExpense.transactionDate)}`
+        ? `${biggestExpense.title || "Untitled"} on ${formatDisplayDate(biggestExpense.transactionDate)}`
         : "No expenses in this period",
       icon: Trophy,
       label: "Biggest expense",
@@ -326,26 +326,28 @@ export default function Dashboard() {
       value: mostUsedCategory?.category || "None yet",
     },
     {
-      detail: "Selected period",
-      icon: ReceiptText,
-      label: "Transactions",
-      tone: "neutral",
-      value: formatCount(stats.transactionCount),
+      detail: "Average expense per day in the selected period",
+      icon: PiggyBank,
+      label: "Daily average",
+      tone: "balance",
+      value: formatCurrencyFromPaise(stats.averageDailySpendPaise),
     },
   ];
 
   return (
     <section className="page-section" aria-labelledby="dashboard-title">
-      <div className="page-header">
-        <div>
-          <p className="eyebrow">Overview</p>
-          <h1 id="dashboard-title">Dashboard</h1>
-        </div>
-        <Link className="button primary-button" to="/expenses/new">
-          <CircleDollarSign size={18} aria-hidden="true" />
-          Add transaction
-        </Link>
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title="Dashboard"
+        titleId="dashboard-title"
+        description="Track your spending, income, and recurring payments in one calm view."
+        actions={(
+          <Link className="button primary-button" to="/expenses/new">
+            <CircleDollarSign size={18} aria-hidden="true" />
+            Add transaction
+          </Link>
+        )}
+      />
 
       <div className="summary-grid dashboard-summary-grid">
         {cards.map((card) => (
@@ -360,90 +362,99 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="content-grid dashboard-chart-grid">
-        <section className="panel" aria-labelledby="category-title">
-          <div className="panel-header">
+      <div className="insight-grid">
+        {insights.map(({ detail, icon: Icon, label, tone, value }) => (
+          <article className={`insight-card ${tone}`} key={label}>
+            <span className="insight-icon" aria-hidden="true">
+              <Icon size={18} />
+            </span>
             <div>
-              <h2 id="category-title">Spending by category</h2>
-              <p>Expense breakdown for the selected period.</p>
+              <p>{label}</p>
+              <strong>{value}</strong>
+              <span>{detail}</span>
             </div>
-          </div>
-          <CategoryChart items={stats.categoryBreakdown || []} />
-        </section>
+          </article>
+        ))}
+      </div>
 
-        <section className="panel" aria-labelledby="income-expense-title">
-          <div className="panel-header">
-            <div>
-              <h2 id="income-expense-title">Income vs expense</h2>
-              <p>Side-by-side period totals with net balance.</p>
-            </div>
-          </div>
+      <div className="content-grid dashboard-chart-grid">
+        <DashboardCard
+          title="Spending by category"
+          titleId="category-title"
+          description="Expense breakdown for the selected period."
+        >
+          <CategoryChart items={stats.categoryBreakdown || []} />
+        </DashboardCard>
+
+        <DashboardCard
+          title="Income vs expense"
+          titleId="income-expense-title"
+          description="Side-by-side period totals with net balance."
+        >
           <IncomeExpenseSummary
             expensePaise={stats.totalExpensePaise}
             incomePaise={stats.totalIncomePaise}
             netBalancePaise={stats.netBalancePaise}
           />
-        </section>
+        </DashboardCard>
 
-        <section className="panel wide-panel" aria-labelledby="daily-title">
-          <div className="panel-header">
-            <div>
-              <h2 id="daily-title">Daily spending trend</h2>
-              <p>Zero-value days stay visible so gaps are easy to spot.</p>
-            </div>
-          </div>
+        <DashboardCard
+          className="wide-panel"
+          title="Daily spending trend"
+          titleId="daily-title"
+          description="Zero-value days stay visible so gaps are easy to spot."
+        >
           <TrendChart
             data={stats.dailyTrend || []}
             emptyMessage="Daily spending will appear after transactions exist."
             emptyTitle="No daily spending"
           />
-        </section>
+        </DashboardCard>
 
-        <section className="panel wide-panel" aria-labelledby="monthly-title">
-          <div className="panel-header">
-            <div>
-              <h2 id="monthly-title">Monthly spending trend</h2>
-              <p>Current-year expense totals, including months with no spending.</p>
-            </div>
-          </div>
+        <DashboardCard
+          className="wide-panel"
+          title="Monthly spending trend"
+          titleId="monthly-title"
+          description="Current-year expense totals, including months with no spending."
+        >
           <TrendChart
             data={stats.monthlyTrend || []}
             emptyMessage="Monthly spending will appear after transactions exist."
             emptyTitle="No monthly spending"
             mode="monthly"
           />
-        </section>
+        </DashboardCard>
       </div>
 
-      <section className="panel" aria-labelledby="recent-title">
-        <div className="panel-header">
-          <div>
-            <h2 id="recent-title">Recent transactions</h2>
-            <p>The latest entries across expenses and income.</p>
-          </div>
-          <Link className="text-link" to="/expenses">
-            View all
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
+      <div className="content-grid two-column-grid">
+        <DashboardCard
+          title="Recent transactions"
+          titleId="recent-title"
+          description="The latest entries across expenses and income."
+          actions={(
+            <Link className="text-link" to="/expenses">
+              View all
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          )}
+        >
+          <RecentTransactions items={stats.recentTransactions || []} />
+        </DashboardCard>
 
-        <RecentTransactions items={stats.recentTransactions || []} />
-      </section>
-
-      <section className="panel" aria-labelledby="fixed-expenses-title">
-        <div className="panel-header">
-          <div>
-            <h2 id="fixed-expenses-title">Fixed monthly expenses</h2>
-            <p>Active recurring expenses included in current monthly totals.</p>
-          </div>
-          <Link className="text-link" to="/recurring-expenses">
-            Manage
-            <ArrowRight size={16} aria-hidden="true" />
-          </Link>
-        </div>
-
-        <RecurringExpensesPreview items={stats.recurringExpenses || []} />
-      </section>
+        <DashboardCard
+          title="Fixed monthly expenses"
+          titleId="fixed-expenses-title"
+          description="Active recurring expenses included in monthly totals."
+          actions={(
+            <Link className="text-link" to="/recurring-expenses">
+              Manage
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          )}
+        >
+          <RecurringExpensesPreview items={stats.recurringExpenses || []} />
+        </DashboardCard>
+      </div>
     </section>
   );
 }
