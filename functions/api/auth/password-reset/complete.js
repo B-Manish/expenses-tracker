@@ -55,9 +55,10 @@ export async function onRequest(context) {
   }
 
   try {
-    await setAppPassword(env.DB, password.trim());
+    await setAppPassword(env.DB, env, password.trim());
     return success({ reset: true });
-  } catch {
-    return failure("Could not update password", 500);
+  } catch (error) {
+    console.error("Password reset update failed", error);
+    return failure("Could not update password. Please check the production D1 binding and migrations.", 500);
   }
 }

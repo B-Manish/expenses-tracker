@@ -2,6 +2,7 @@ const PASSWORD_SETTINGS_KEY = "app_password_hash";
 const PBKDF2_ITERATIONS = 120000;
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
+const APP_AUTH_TABLE = "app_auth";
 const encoder = new TextEncoder();
 
 function bytesToBase64Url(bytes) {
@@ -68,6 +69,37 @@ async function deriveHash(password, salt, iterations = PBKDF2_ITERATIONS) {
   return new Uint8Array(bits);
 }
 
+async function hmacSha256(value, secret) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(value));
+
+  return new Uint8Array(signature);
+}
+
+function getPasswordPepper(env) {
+  return typeof env?.SESSION_SECRET === "string" && env.SESSION_SECRET
+    ? env.SESSION_SECRET
+    : null;
+}
+
+async function ensureAppAuthTable(db) {
+  await db
+    .prepare(`
+      CREATE TABLE IF NOT EXISTS ${APP_AUTH_TABLE} (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    .run();
+}
+
 function parseStoredPasswordHash(value) {
   if (typeof value !== "string" || !value.trim()) {
     return null;
@@ -107,22 +139,31 @@ export function validateNewPassword(password) {
 }
 
 export async function getStoredPasswordConfig(db) {
+  await ensureAppAuthTable(db);
+
   const row = await db
-    .prepare("SELECT value FROM settings WHERE key = ?")
+    .prepare(`SELECT value FROM ${APP_AUTH_TABLE} WHERE key = ?`)
     .bind(PASSWORD_SETTINGS_KEY)
     .first();
 
   return parseStoredPasswordHash(row?.value);
 }
 
-export async function hashAppPassword(password) {
+export async function hashAppPassword(env, password) {
+  const pepper = getPasswordPepper(env);
+
+  if (!pepper) {
+    throw new Error("SESSION_SECRET is not configured");
+  }
+
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
-  const hash = await deriveHash(password, salt);
+  const saltText = bytesToBase64Url(salt);
+  const hash = await hmacSha256(`${saltText}:${password}`, pepper);
 
   return JSON.stringify({
-    salt: bytesToBase64Url(salt),
+    algorithm: "hmac-sha256-v1",
+    salt: saltText,
     hash: bytesToBase64Url(hash),
-    iterations: PBKDF2_ITERATIONS,
   });
 }
 
@@ -130,6 +171,19 @@ export async function verifyAppPassword(db, env, password) {
   const stored = await getStoredPasswordConfig(db);
 
   if (stored) {
+    if (stored.algorithm === "hmac-sha256-v1") {
+      const pepper = getPasswordPepper(env);
+
+      if (!pepper) {
+        return false;
+      }
+
+      const actualHash = await hmacSha256(`${stored.salt}:${password}`, pepper);
+      const expectedHash = base64UrlToBytes(stored.hash);
+
+      return constantTimeEqual(actualHash, expectedHash);
+    }
+
     const actualHash = await deriveHash(
       password,
       base64UrlToBytes(stored.salt),
@@ -143,12 +197,14 @@ export async function verifyAppPassword(db, env, password) {
   return password === env.APP_PASSWORD;
 }
 
-export async function setAppPassword(db, password) {
-  const passwordHash = await hashAppPassword(password);
+export async function setAppPassword(db, env, password) {
+  await ensureAppAuthTable(db);
+
+  const passwordHash = await hashAppPassword(env, password);
 
   await db
     .prepare(`
-      INSERT INTO settings (key, value, updated_at)
+      INSERT INTO ${APP_AUTH_TABLE} (key, value, updated_at)
       VALUES (?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(key) DO UPDATE SET
         value = excluded.value,
