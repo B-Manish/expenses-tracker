@@ -3,6 +3,7 @@ const PBKDF2_ITERATIONS = 120000;
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
 const APP_AUTH_TABLE = "app_auth";
+const LEGACY_SETTINGS_TABLE = "settings";
 const encoder = new TextEncoder();
 
 function bytesToBase64Url(bytes) {
@@ -108,18 +109,31 @@ function parseStoredPasswordHash(value) {
   try {
     const parsed = JSON.parse(value);
 
-    if (
-      typeof parsed?.salt !== "string" ||
-      typeof parsed?.hash !== "string" ||
-      !Number.isInteger(parsed?.iterations)
-    ) {
+    if (typeof parsed?.salt !== "string" || typeof parsed?.hash !== "string") {
       return null;
     }
 
-    return parsed;
+    if (parsed.algorithm === "hmac-sha256-v1") {
+      return parsed;
+    }
+
+    if (!parsed.algorithm && Number.isInteger(parsed?.iterations)) {
+      return parsed;
+    }
+
+    return null;
   } catch {
     return null;
   }
+}
+
+async function readPasswordConfig(db, tableName) {
+  const row = await db
+    .prepare(`SELECT value FROM ${tableName} WHERE key = ?`)
+    .bind(PASSWORD_SETTINGS_KEY)
+    .first();
+
+  return parseStoredPasswordHash(row?.value);
 }
 
 export function validateNewPassword(password) {
@@ -141,12 +155,17 @@ export function validateNewPassword(password) {
 export async function getStoredPasswordConfig(db) {
   await ensureAppAuthTable(db);
 
-  const row = await db
-    .prepare(`SELECT value FROM ${APP_AUTH_TABLE} WHERE key = ?`)
-    .bind(PASSWORD_SETTINGS_KEY)
-    .first();
+  const stored = await readPasswordConfig(db, APP_AUTH_TABLE);
 
-  return parseStoredPasswordHash(row?.value);
+  if (stored) {
+    return stored;
+  }
+
+  try {
+    return await readPasswordConfig(db, LEGACY_SETTINGS_TABLE);
+  } catch {
+    return null;
+  }
 }
 
 export async function hashAppPassword(env, password) {
