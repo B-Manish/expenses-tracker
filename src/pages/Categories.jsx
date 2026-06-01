@@ -486,15 +486,25 @@ export default function Categories() {
 
             <label className="form-field">
               <span>Color</span>
-              <input
-                autoComplete="off"
-                disabled={isSubmitting}
-                maxLength={7}
-                onChange={(event) => updateFormField("color", event.target.value)}
-                placeholder="#64748b"
-                type="text"
-                value={formState.values.color}
-              />
+              <div className="color-picker-field">
+                <input
+                  aria-label="Choose category color"
+                  disabled={isSubmitting}
+                  onChange={(event) => updateFormField("color", event.target.value)}
+                  type="color"
+                  value={formState.values.color || "#64748b"}
+                />
+                <input
+                  aria-label="Category color hex value"
+                  autoComplete="off"
+                  disabled={isSubmitting}
+                  maxLength={7}
+                  onChange={(event) => updateFormField("color", event.target.value)}
+                  placeholder="#64748b"
+                  type="text"
+                  value={formState.values.color}
+                />
+              </div>
               {formState.errors.color ? <span className="field-error">{formState.errors.color}</span> : null}
             </label>
 
