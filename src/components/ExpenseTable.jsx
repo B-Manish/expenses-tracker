@@ -3,12 +3,22 @@ import { Link } from "react-router-dom";
 import { formatDisplayDateTime } from "../utils/dateUtils.js";
 import AmountText from "./AmountText.jsx";
 import CategoryBadge from "./CategoryBadge.jsx";
+import { Badge } from "./ui/badge.jsx";
+import { Button } from "./ui/button.jsx";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./ui/table.jsx";
 
 function TypeBadge({ type }) {
   return (
-    <span className={type === "INCOME" ? "type-badge income" : "type-badge expense"}>
+    <Badge className={type === "INCOME" ? "type-badge income" : "type-badge expense"} variant="secondary">
       {type === "INCOME" ? "Income" : "Expense"}
-    </span>
+    </Badge>
   );
 }
 
@@ -24,23 +34,28 @@ function CategoryLabel({ transaction }) {
 function TransactionActions({ onDeleteRequest, transaction }) {
   return (
     <div className="row-actions">
-      <Link
+      <Button
+        asChild
         aria-label={`Edit ${transaction.title}`}
-        className="icon-button"
+        size="icon"
         title={`Edit ${transaction.title}`}
-        to={`/expenses/${transaction.id}/edit`}
+        variant="outline"
       >
-        <Edit3 size={16} aria-hidden="true" />
-      </Link>
-      <button
+        <Link to={`/expenses/${transaction.id}/edit`}>
+          <Edit3 size={16} aria-hidden="true" />
+        </Link>
+      </Button>
+      <Button
         aria-label={`Delete ${transaction.title}`}
-        className="icon-button danger-icon-button"
+        className="danger-icon-button"
         onClick={() => onDeleteRequest(transaction)}
+        size="icon"
         title={`Delete ${transaction.title}`}
         type="button"
+        variant="outline"
       >
         <Trash2 size={16} aria-hidden="true" />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -49,41 +64,41 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
   return (
     <div className="transactions-view">
       <div className="table-scroll desktop-transactions" role="region" aria-label="Transactions table">
-        <table className="transactions-table">
-          <thead>
-            <tr>
-              <th scope="col">Transaction</th>
-              <th scope="col">Type</th>
-              <th scope="col">Category</th>
-              <th scope="col">Payment</th>
-              <th scope="col">Date & time</th>
-              <th scope="col">Amount</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="transactions-table">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Transaction</TableHead>
+              <TableHead scope="col">Type</TableHead>
+              <TableHead scope="col">Category</TableHead>
+              <TableHead scope="col">Payment</TableHead>
+              <TableHead scope="col">Date & time</TableHead>
+              <TableHead scope="col">Amount</TableHead>
+              <TableHead scope="col">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {items.map((transaction) => (
-              <tr key={transaction.id}>
-                <td>
+              <TableRow key={transaction.id}>
+                <TableCell>
                   <div className="table-title-cell">
                     <strong>{transaction.title}</strong>
                     <span>{transaction.merchant || "No merchant/source"}</span>
                   </div>
-                </td>
-                <td><TypeBadge type={transaction.type} /></td>
-                <td><CategoryLabel transaction={transaction} /></td>
-                <td>{transaction.paymentMethodName || "Not set"}</td>
-                <td>{formatDisplayDateTime(transaction.transactionDate, transaction.transactionTime)}</td>
-                <td>
+                </TableCell>
+                <TableCell><TypeBadge type={transaction.type} /></TableCell>
+                <TableCell><CategoryLabel transaction={transaction} /></TableCell>
+                <TableCell>{transaction.paymentMethodName || "Not set"}</TableCell>
+                <TableCell>{formatDisplayDateTime(transaction.transactionDate, transaction.transactionTime)}</TableCell>
+                <TableCell>
                   <AmountText amountPaise={transaction.amountPaise} type={transaction.type} />
-                </td>
-                <td>
+                </TableCell>
+                <TableCell>
                   <TransactionActions onDeleteRequest={onDeleteRequest} transaction={transaction} />
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
       <ul className="mobile-transaction-list">

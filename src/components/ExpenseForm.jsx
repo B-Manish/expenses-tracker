@@ -4,6 +4,9 @@ import { formatCategoryLabel } from "../utils/categories.js";
 import { paiseToRupeesInputValue } from "../utils/currency.js";
 import { getCurrentTimeInKolkata, getTodayInKolkata } from "../utils/dateUtils.js";
 import { getFirstValidationError, validateTransactionForm } from "../utils/validation.js";
+import SelectControl from "./SelectControl.jsx";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
 
 const TYPE_OPTIONS = [
   { label: "Expense", value: "EXPENSE" },
@@ -61,6 +64,20 @@ export default function ExpenseForm({
     () => categories.filter((category) => category.type === values.type),
     [categories, values.type],
   );
+  const categoryOptions = useMemo(() => [
+    { label: "Uncategorized", value: "" },
+    ...filteredCategories.map((category) => ({
+      label: formatCategoryLabel(category),
+      value: String(category.id),
+    })),
+  ], [filteredCategories]);
+  const paymentMethodOptions = useMemo(() => [
+    { label: "Not set", value: "" },
+    ...paymentMethods.map((method) => ({
+      label: method.name,
+      value: String(method.id),
+    })),
+  ], [paymentMethods]);
 
   function updateField(field, value) {
     setValues((current) => {
@@ -133,7 +150,7 @@ export default function ExpenseForm({
       <div className="form-grid">
         <label className="form-field">
           <span>Title</span>
-          <input
+          <Input
             autoComplete="off"
             disabled={isSubmitting}
             maxLength={120}
@@ -148,7 +165,7 @@ export default function ExpenseForm({
 
         <label className="form-field">
           <span>Amount</span>
-          <input
+          <Input
             autoComplete="off"
             disabled={isSubmitting}
             inputMode="decimal"
@@ -163,7 +180,7 @@ export default function ExpenseForm({
 
         <label className="form-field">
           <span>Date</span>
-          <input
+          <Input
             disabled={isSubmitting}
             onChange={(event) => updateField("transactionDate", event.target.value)}
             required
@@ -175,7 +192,7 @@ export default function ExpenseForm({
 
         <label className="form-field">
           <span>Time</span>
-          <input
+          <Input
             disabled={isSubmitting}
             onChange={(event) => updateField("transactionTime", event.target.value)}
             required
@@ -187,18 +204,13 @@ export default function ExpenseForm({
 
         <label className="form-field">
           <span>Category</span>
-          <select
+          <SelectControl
             disabled={isSubmitting || filteredCategories.length === 0}
-            onChange={(event) => updateField("categoryId", event.target.value)}
+            onChange={(value) => updateField("categoryId", value)}
+            options={categoryOptions}
+            placeholder="Choose category"
             value={values.categoryId}
-          >
-            <option value="">Uncategorized</option>
-            {filteredCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {formatCategoryLabel(category)}
-              </option>
-            ))}
-          </select>
+          />
           {filteredCategories.length === 0 ? (
             <span className="field-hint">No {values.type.toLowerCase()} categories returned.</span>
           ) : null}
@@ -207,25 +219,20 @@ export default function ExpenseForm({
 
         <label className="form-field">
           <span>Payment method</span>
-          <select
+          <SelectControl
             disabled={isSubmitting || paymentMethods.length === 0}
-            onChange={(event) => updateField("paymentMethodId", event.target.value)}
+            onChange={(value) => updateField("paymentMethodId", value)}
+            options={paymentMethodOptions}
+            placeholder="Choose payment method"
             value={values.paymentMethodId}
-          >
-            <option value="">Not set</option>
-            {paymentMethods.map((method) => (
-              <option key={method.id} value={method.id}>
-                {method.name}
-              </option>
-            ))}
-          </select>
+          />
           {paymentMethods.length === 0 ? <span className="field-hint">No payment methods returned.</span> : null}
           {errors.paymentMethodId ? <span className="field-error">{errors.paymentMethodId}</span> : null}
         </label>
 
         <label className="form-field">
           <span>Merchant/source</span>
-          <input
+          <Input
             autoComplete="off"
             disabled={isSubmitting}
             maxLength={120}
@@ -253,10 +260,10 @@ export default function ExpenseForm({
       </label>
 
       <div className="form-actions">
-        <button className="button primary-button" disabled={isSubmitting} type="submit">
+        <Button disabled={isSubmitting} type="submit">
           <Save size={18} aria-hidden="true" />
           {isSubmitting ? "Saving" : submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   );

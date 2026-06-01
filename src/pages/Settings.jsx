@@ -15,6 +15,8 @@ import { useNavigate } from "react-router-dom";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import SelectControl from "../components/SelectControl.jsx";
+import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
 import { useAuth } from "../services/auth.js";
 import {
@@ -44,6 +46,9 @@ const weekStartOptions = [
   { value: "THURSDAY", label: "Thursday" },
   { value: "FRIDAY", label: "Friday" },
   { value: "SATURDAY", label: "Saturday" },
+];
+const currencyOptions = [
+  { value: "INR", label: "INR" },
 ];
 
 function normalizeSettings(settings = {}) {
@@ -172,9 +177,7 @@ export default function Settings() {
   const isSaving = saveState.status === "saving";
   const canSave = loadState.status === "ready" && hasChanges && !isSaving;
 
-  function handleFieldChange(event) {
-    const { name, value } = event.target;
-
+  function updateSettingField(name, value) {
     setFormValues((current) => ({
       ...current,
       [name]: value,
@@ -306,14 +309,12 @@ export default function Settings() {
                 <IndianRupee size={16} aria-hidden="true" />
                 Currency
               </span>
-              <select
-                name="currency"
-                value={formValues.currency}
-                onChange={handleFieldChange}
+              <SelectControl
                 disabled={loadState.status !== "ready" || isSaving}
-              >
-                <option value="INR">INR</option>
-              </select>
+                onChange={(value) => updateSettingField("currency", value)}
+                options={currencyOptions}
+                value={formValues.currency}
+              />
               <span className="field-hint">Only INR is supported in this MVP.</span>
             </label>
 
@@ -322,18 +323,12 @@ export default function Settings() {
                 <Moon size={16} aria-hidden="true" />
                 Theme
               </span>
-              <select
-                name="theme"
-                value={formValues.theme}
-                onChange={handleFieldChange}
+              <SelectControl
                 disabled={loadState.status !== "ready" || isSaving}
-              >
-                {themeOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateSettingField("theme", value)}
+                options={themeOptions}
+                value={formValues.theme}
+              />
               <span className="field-hint">Stored as a preference; full theme styling can come later.</span>
             </label>
 
@@ -342,18 +337,12 @@ export default function Settings() {
                 <SettingsIcon size={16} aria-hidden="true" />
                 Week starts
               </span>
-              <select
-                name="weekStartDay"
-                value={formValues.weekStartDay}
-                onChange={handleFieldChange}
+              <SelectControl
                 disabled={loadState.status !== "ready" || isSaving}
-              >
-                {weekStartOptions.map((option) => (
-                  <option value={option.value} key={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateSettingField("weekStartDay", value)}
+                options={weekStartOptions}
+                value={formValues.weekStartDay}
+              />
               <span className="field-hint">Dashboard week totals use this setting.</span>
             </label>
 
@@ -371,18 +360,18 @@ export default function Settings() {
           {saveState.message ? <p className="success-message" role="status">{saveState.message}</p> : null}
 
           <div className="form-actions">
-            <button
-              className="button secondary-button"
+            <Button
               type="button"
               onClick={resetChanges}
               disabled={!hasChanges || isSaving}
+              variant="outline"
             >
               Reset
-            </button>
-            <button className="button primary-button" type="submit" disabled={!canSave}>
+            </Button>
+            <Button type="submit" disabled={!canSave}>
               <Save size={18} aria-hidden="true" />
               {isSaving ? "Saving" : "Save settings"}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
@@ -397,9 +386,9 @@ export default function Settings() {
             <h2 id="export-title">Data export</h2>
             <p>Export is not implemented yet. This control is disabled and does not download fake data.</p>
           </div>
-          <button className="button secondary-button" type="button" disabled>
+          <Button type="button" disabled variant="outline">
             Export unavailable
-          </button>
+          </Button>
         </section>
 
         <section className="panel placeholder-panel danger-panel" aria-labelledby="delete-data-title">
@@ -411,9 +400,9 @@ export default function Settings() {
             <h2 id="delete-data-title">Delete all data</h2>
             <p>Bulk deletion is not implemented in the MVP. This disabled control does not remove any data.</p>
           </div>
-          <button className="button danger-button" type="button" disabled>
+          <Button type="button" disabled variant="destructive">
             Delete unavailable
-          </button>
+          </Button>
         </section>
 
         <section className="panel placeholder-panel wide-panel" aria-labelledby="bank-placeholder-title">
@@ -432,9 +421,9 @@ export default function Settings() {
             <ShieldCheck size={18} aria-hidden="true" />
             <span>Manual tracking only</span>
           </div>
-          <button className="button secondary-button" type="button" disabled>
+          <Button type="button" disabled variant="outline">
             Connect unavailable
-          </button>
+          </Button>
         </section>
       </div>
 
@@ -443,10 +432,10 @@ export default function Settings() {
           <h2 id="session-title">Session</h2>
           <p>Sign out of this browser.</p>
         </div>
-        <button className="button danger-button" type="button" onClick={handleLogout} disabled={isLoggingOut}>
+        <Button type="button" onClick={handleLogout} disabled={isLoggingOut} variant="destructive">
           <LogOut size={18} aria-hidden="true" />
           {isLoggingOut ? "Signing out" : "Logout"}
-        </button>
+        </Button>
       </section>
     </section>
   );

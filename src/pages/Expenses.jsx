@@ -8,6 +8,7 @@ import ExpenseTable from "../components/ExpenseTable.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
 import { isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
@@ -375,10 +376,12 @@ export default function Expenses() {
         titleId="expenses-title"
         description="Search, filter, edit, and keep your ledger tidy."
         actions={(
-          <Link className="button primary-button" to="/expenses/new">
-            <PlusCircle size={18} aria-hidden="true" />
-            Add transaction
-          </Link>
+          <Button asChild>
+            <Link to="/expenses/new">
+              <PlusCircle size={18} aria-hidden="true" />
+              Add transaction
+            </Link>
+          </Button>
         )}
       />
 
@@ -444,27 +447,27 @@ export default function Expenses() {
             />
 
             <div className="pagination-bar" aria-label="Pagination">
-              <button
-                className="button secondary-button"
+              <Button
                 disabled={offset <= 0}
                 onClick={() => changePage(offset - limit)}
                 type="button"
+                variant="outline"
               >
                 <ChevronLeft size={18} aria-hidden="true" />
                 Previous
-              </button>
+              </Button>
               <span>
                 Page {currentPage} of {totalPages}
               </span>
-              <button
-                className="button secondary-button"
+              <Button
                 disabled={offset + limit >= total}
                 onClick={() => changePage(offset + limit)}
                 type="button"
+                variant="outline"
               >
                 Next
                 <ChevronRight size={18} aria-hidden="true" />
-              </button>
+              </Button>
             </div>
           </>
         ) : null}
@@ -473,14 +476,16 @@ export default function Expenses() {
           <EmptyState
             action={
               hasFilters ? (
-                <button className="button secondary-button" onClick={clearFilters} type="button">
+                <Button onClick={clearFilters} type="button" variant="outline">
                   Clear filters
-                </button>
+                </Button>
               ) : (
-                <Link className="button primary-button" to="/expenses/new">
-                  <PlusCircle size={18} aria-hidden="true" />
-                  Add transaction
-                </Link>
+                <Button asChild>
+                  <Link to="/expenses/new">
+                    <PlusCircle size={18} aria-hidden="true" />
+                    Add transaction
+                  </Link>
+                </Button>
               )
             }
             message={hasFilters ? "Try widening the date range or clearing filters." : "Add your first expense or income entry."}

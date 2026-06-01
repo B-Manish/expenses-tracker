@@ -7,7 +7,9 @@ import {
   Landmark,
   PiggyBank,
   ReceiptText,
+  RotateCcw,
   Scale,
+  Search,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -24,9 +26,11 @@ import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import StatCard from "../components/StatCard.jsx";
 import TrendChart from "../components/TrendChart.jsx";
+import { Button } from "../components/ui/button.jsx";
+import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
 import { formatCurrencyFromPaise, formatSignedCurrencyFromPaise } from "../utils/currency.js";
-import { formatDisplayDateTime } from "../utils/dateUtils.js";
+import { formatDisplayDateTime, isValidDateInput } from "../utils/dateUtils.js";
 import { getErrorMessage } from "../utils/validation.js";
 
 function toAmount(value) {
@@ -43,6 +47,120 @@ function formatCount(value) {
 
 function pluralizeTransactions(count) {
   return `${count} transaction${count === 1 ? "" : "s"}`;
+}
+
+function buildStatsQuery(range) {
+  return {
+    from: range.from || "",
+    to: range.to || "",
+  };
+}
+
+function selectedPeriodLabel(range) {
+  if (range.from && range.to) {
+    return `${range.from} to ${range.to}`;
+  }
+
+  if (range.from) {
+    return `From ${range.from}`;
+  }
+
+  if (range.to) {
+    return `Through ${range.to}`;
+  }
+
+  return "Current month";
+}
+
+function validateRange(draft) {
+  if (draft.from && !isValidDateInput(draft.from)) {
+    return "Enter a valid from date.";
+  }
+
+  if (draft.to && !isValidDateInput(draft.to)) {
+    return "Enter a valid to date.";
+  }
+
+  if (draft.from && draft.to && draft.from > draft.to) {
+    return "From date must be before or equal to to date.";
+  }
+
+  return "";
+}
+
+function DateRangeSelector({ isLoading, onApply, onClear, range }) {
+  const [draft, setDraft] = useState(range);
+  const [error, setError] = useState("");
+
+  function updateDraft(field, value) {
+    setDraft((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setError("");
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+
+    const rangeError = validateRange(draft);
+
+    if (rangeError) {
+      setError(rangeError);
+      return;
+    }
+
+    onApply({
+      from: draft.from,
+      to: draft.to,
+    });
+  }
+
+  return (
+    <form className="date-range-card" onSubmit={handleSubmit}>
+      <div className="date-range-fields">
+        <label className="form-field">
+          <span>From</span>
+          <Input
+            disabled={isLoading}
+            onChange={(event) => updateDraft("from", event.target.value)}
+            type="date"
+            value={draft.from}
+          />
+        </label>
+        <label className="form-field">
+          <span>To</span>
+          <Input
+            disabled={isLoading}
+            onChange={(event) => updateDraft("to", event.target.value)}
+            type="date"
+            value={draft.to}
+          />
+        </label>
+      </div>
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      <div className="filter-actions">
+        <Button disabled={isLoading} type="submit" size="sm">
+          <Search size={16} aria-hidden="true" />
+          Apply range
+        </Button>
+        <Button
+          disabled={isLoading || (!range.from && !range.to && !draft.from && !draft.to)}
+          onClick={() => {
+            setDraft({ from: "", to: "" });
+            setError("");
+            onClear();
+          }}
+          type="button"
+          size="sm"
+          variant="outline"
+        >
+          <RotateCcw size={16} aria-hidden="true" />
+          Clear
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 function IncomeExpenseSummary({ expensePaise, incomePaise, netBalancePaise }) {
@@ -140,6 +258,10 @@ function RecurringExpensesPreview({ items = [] }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [range, setRange] = useState({
+    from: "",
+    to: "",
+  });
   const [state, setState] = useState({
     data: null,
     error: "",
@@ -166,7 +288,7 @@ export default function Dashboard() {
     }));
 
     try {
-      const data = await api.getStats();
+      const data = await api.getStats(buildStatsQuery(range));
 
       setState({
         data,
@@ -184,12 +306,12 @@ export default function Dashboard() {
         status: "error",
       });
     }
-  }, [handleAuthError]);
+  }, [handleAuthError, range]);
 
   useEffect(() => {
     let isCurrent = true;
 
-    api.getStats()
+    api.getStats(buildStatsQuery(range))
       .then((data) => {
         if (isCurrent) {
           setState({
@@ -218,7 +340,7 @@ export default function Dashboard() {
     return () => {
       isCurrent = false;
     };
-  }, [handleAuthError]);
+  }, [handleAuthError, range]);
 
   if (state.status === "loading") {
     return <LoadingState title="Loading dashboard" message="Fetching your latest summary." />;
@@ -250,6 +372,7 @@ export default function Dashboard() {
   const biggestExpense = stats.biggestExpense;
   const mostUsedCategory = stats.mostUsedCategory;
   const mostUsedCount = Number(mostUsedCategory?.count ?? 0);
+  const periodLabel = selectedPeriodLabel(range);
   const cards = [
     {
       detail: "Asia/Kolkata today",
@@ -273,14 +396,14 @@ export default function Dashboard() {
       value: formatCurrencyFromPaise(stats.monthSpentPaise),
     },
     {
-      detail: "Selected period",
+      detail: periodLabel,
       icon: TrendingUp,
       label: "Total income",
       tone: "income",
       value: formatCurrencyFromPaise(stats.totalIncomePaise),
     },
     {
-      detail: "Selected period",
+      detail: periodLabel,
       icon: WalletCards,
       label: "Total expense",
       tone: "expense",
@@ -301,7 +424,7 @@ export default function Dashboard() {
       value: formatCurrencyFromPaise(stats.totalMonthlyRecurringPaise),
     },
     {
-      detail: "Selected period",
+      detail: periodLabel,
       icon: ReceiptText,
       label: "Transactions",
       tone: "neutral",
@@ -337,6 +460,15 @@ export default function Dashboard() {
     },
   ];
 
+  function updateRange(nextRange) {
+    setState((current) => ({
+      ...current,
+      error: "",
+      status: "loading",
+    }));
+    setRange(nextRange);
+  }
+
   return (
     <section className="page-section" aria-labelledby="dashboard-title">
       <PageHeader
@@ -345,10 +477,20 @@ export default function Dashboard() {
         titleId="dashboard-title"
         description="Track your spending, income, and recurring payments in one calm view."
         actions={(
-          <Link className="button primary-button" to="/expenses/new">
-            <CircleDollarSign size={18} aria-hidden="true" />
-            Add transaction
-          </Link>
+          <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_auto] sm:items-start">
+            <DateRangeSelector
+              isLoading={state.status === "loading"}
+              onApply={updateRange}
+              onClear={() => updateRange({ from: "", to: "" })}
+              range={range}
+            />
+            <Button asChild>
+              <Link to="/expenses/new">
+                <CircleDollarSign size={18} aria-hidden="true" />
+                Add transaction
+              </Link>
+            </Button>
+          </div>
         )}
       />
 

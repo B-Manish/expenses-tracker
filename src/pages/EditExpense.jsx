@@ -6,6 +6,7 @@ import ErrorState from "../components/ErrorState.jsx";
 import ExpenseForm from "../components/ExpenseForm.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
 import { getErrorMessage } from "../utils/validation.js";
 
@@ -163,10 +164,12 @@ export default function EditExpense() {
         titleId="edit-expense-title"
         description="Update the amount, category, date, and context for this entry."
         actions={(
-          <Link className="button secondary-button" to="/expenses">
-            <ArrowLeft size={18} aria-hidden="true" />
-            Back
-          </Link>
+          <Button asChild variant="outline">
+            <Link to="/expenses">
+              <ArrowLeft size={18} aria-hidden="true" />
+              Back
+            </Link>
+          </Button>
         )}
       />
 

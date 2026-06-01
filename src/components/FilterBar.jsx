@@ -3,6 +3,9 @@ import { useMemo, useState } from "react";
 import { formatCategoryLabel } from "../utils/categories.js";
 import { isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
+import SelectControl from "./SelectControl.jsx";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
 
 function categoryLabel(category, includeType) {
   return formatCategoryLabel(category, { includeType });
@@ -42,6 +45,25 @@ export default function FilterBar({
 
     return categories;
   }, [categories, draft.type]);
+  const typeOptions = [
+    { label: "All", value: "ALL" },
+    { label: "Expense", value: "EXPENSE" },
+    { label: "Income", value: "INCOME" },
+  ];
+  const categoryOptions = useMemo(() => [
+    { label: "All categories", value: "" },
+    ...visibleCategories.map((category) => ({
+      label: categoryLabel(category, draft.type === "ALL"),
+      value: String(category.id),
+    })),
+  ], [draft.type, visibleCategories]);
+  const paymentMethodOptions = useMemo(() => [
+    { label: "All methods", value: "" },
+    ...paymentMethods.map((method) => ({
+      label: method.name,
+      value: String(method.id),
+    })),
+  ], [paymentMethods]);
 
   function updateDraft(field, value) {
     setDraft((current) => {
@@ -85,7 +107,7 @@ export default function FilterBar({
       <div className="filter-grid">
         <label className="form-field search-field">
           <span>Search</span>
-          <input
+          <Input
             disabled={isLoading}
             maxLength={120}
             onChange={(event) => updateDraft("search", event.target.value)}
@@ -97,48 +119,39 @@ export default function FilterBar({
 
         <label className="form-field">
           <span>Type</span>
-          <select disabled={isLoading} onChange={(event) => updateDraft("type", event.target.value)} value={draft.type}>
-            <option value="ALL">All</option>
-            <option value="EXPENSE">Expense</option>
-            <option value="INCOME">Income</option>
-          </select>
+          <SelectControl
+            disabled={isLoading}
+            onChange={(value) => updateDraft("type", value)}
+            options={typeOptions}
+            value={draft.type}
+          />
         </label>
 
         <label className="form-field">
           <span>Category</span>
-          <select
+          <SelectControl
             disabled={isLoading || visibleCategories.length === 0}
-            onChange={(event) => updateDraft("categoryId", event.target.value)}
+            onChange={(value) => updateDraft("categoryId", value)}
+            options={categoryOptions}
+            placeholder="All categories"
             value={draft.categoryId}
-          >
-            <option value="">All categories</option>
-            {visibleCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {categoryLabel(category, draft.type === "ALL")}
-              </option>
-            ))}
-          </select>
+          />
         </label>
 
         <label className="form-field">
           <span>Payment</span>
-          <select
+          <SelectControl
             disabled={isLoading || paymentMethods.length === 0}
-            onChange={(event) => updateDraft("paymentMethodId", event.target.value)}
+            onChange={(value) => updateDraft("paymentMethodId", value)}
+            options={paymentMethodOptions}
+            placeholder="All methods"
             value={draft.paymentMethodId}
-          >
-            <option value="">All methods</option>
-            {paymentMethods.map((method) => (
-              <option key={method.id} value={method.id}>
-                {method.name}
-              </option>
-            ))}
-          </select>
+          />
         </label>
 
         <label className="form-field">
           <span>From</span>
-          <input
+          <Input
             disabled={isLoading}
             onChange={(event) => updateDraft("from", event.target.value)}
             type="date"
@@ -148,7 +161,7 @@ export default function FilterBar({
 
         <label className="form-field">
           <span>To</span>
-          <input
+          <Input
             disabled={isLoading}
             onChange={(event) => updateDraft("to", event.target.value)}
             type="date"
@@ -158,38 +171,36 @@ export default function FilterBar({
 
         <label className="form-field">
           <span>Sort</span>
-          <select disabled={isLoading} onChange={(event) => updateDraft("sort", event.target.value)} value={draft.sort}>
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <SelectControl
+            disabled={isLoading}
+            onChange={(value) => updateDraft("sort", value)}
+            options={SORT_OPTIONS}
+            value={draft.sort}
+          />
         </label>
 
         <label className="form-field">
           <span>Rows</span>
-          <select disabled={isLoading} onChange={(event) => updateDraft("limit", event.target.value)} value={draft.limit}>
-            {LIMIT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <SelectControl
+            disabled={isLoading}
+            onChange={(value) => updateDraft("limit", value)}
+            options={LIMIT_OPTIONS}
+            value={draft.limit}
+          />
         </label>
       </div>
 
       {error ? <p className="form-error" role="alert">{error}</p> : null}
 
       <div className="filter-actions">
-        <button className="button primary-button" disabled={isLoading} type="submit">
+        <Button disabled={isLoading} type="submit">
           <Search size={18} aria-hidden="true" />
           Apply filters
-        </button>
-        <button className="button secondary-button" disabled={isLoading} onClick={onClear} type="button">
+        </Button>
+        <Button disabled={isLoading} onClick={onClear} type="button" variant="outline">
           <RotateCcw size={18} aria-hidden="true" />
           Clear
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -6,6 +6,8 @@ import {
   validatePasswordConfirmation,
   validateResetCode,
 } from "../utils/validation.js";
+import { Button } from "./ui/button.jsx";
+import { Input } from "./ui/input.jsx";
 
 export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, onVerifyReset }) {
   const [password, setPassword] = useState("");
@@ -140,7 +142,7 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
       <form className="login-form" onSubmit={handleVerifyCode}>
         <label className="form-field" htmlFor="reset-code">
           <span>Verification code</span>
-          <input
+          <Input
             id="reset-code"
             name="code"
             className="code-input"
@@ -157,10 +159,10 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
         {success ? <p className="success-message" role="status">{success}</p> : null}
         {error ? <p className="form-error" role="alert">{error}</p> : null}
 
-        <button className="button primary-button login-button" type="submit" disabled={isSubmitting}>
+        <Button className="login-button" type="submit" disabled={isSubmitting}>
           <KeyRound size={18} aria-hidden="true" />
           {isSubmitting ? "Verifying" : "Verify code"}
-        </button>
+        </Button>
 
         <div className="login-secondary-actions">
           <button
@@ -195,7 +197,7 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
           New password
         </label>
         <div className="password-field">
-          <input
+          <Input
             id="new-password"
             name="newPassword"
             type={showNewPassword ? "text" : "password"}
@@ -204,23 +206,25 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
             autoComplete="new-password"
             disabled={isSubmitting}
           />
-          <button
+          <Button
             className="icon-button"
             type="button"
             aria-label={showNewPassword ? "Hide password" : "Show password"}
             title={showNewPassword ? "Hide password" : "Show password"}
             onClick={() => setShowNewPassword((current) => !current)}
             disabled={isSubmitting}
+            size="icon"
+            variant="outline"
           >
             {showNewPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-          </button>
+          </Button>
         </div>
 
         <label className="field-label" htmlFor="confirm-password">
           Confirm password
         </label>
         <div className="password-field">
-          <input
+          <Input
             id="confirm-password"
             name="confirmPassword"
             type={showConfirmPassword ? "text" : "password"}
@@ -229,25 +233,27 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
             autoComplete="new-password"
             disabled={isSubmitting}
           />
-          <button
+          <Button
             className="icon-button"
             type="button"
             aria-label={showConfirmPassword ? "Hide password" : "Show password"}
             title={showConfirmPassword ? "Hide password" : "Show password"}
             onClick={() => setShowConfirmPassword((current) => !current)}
             disabled={isSubmitting}
+            size="icon"
+            variant="outline"
           >
             {showConfirmPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-          </button>
+          </Button>
         </div>
 
         {success ? <p className="success-message" role="status">{success}</p> : null}
         {error ? <p className="form-error" role="alert">{error}</p> : null}
 
-        <button className="button primary-button login-button" type="submit" disabled={isSubmitting}>
+        <Button className="login-button" type="submit" disabled={isSubmitting}>
           <KeyRound size={18} aria-hidden="true" />
           {isSubmitting ? "Saving password" : "Set new password"}
-        </button>
+        </Button>
 
         <div className="login-secondary-actions">
           <button
@@ -283,7 +289,7 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
         App password
       </label>
       <div className="password-field">
-        <input
+        <Input
           id="app-password"
           name="password"
           type={showPassword ? "text" : "password"}
@@ -292,35 +298,38 @@ export default function LoginForm({ onCompleteReset, onRequestReset, onSubmit, o
           autoComplete="current-password"
           disabled={isSubmitting}
         />
-        <button
+        <Button
           className="icon-button"
           type="button"
           aria-label={showPassword ? "Hide password" : "Show password"}
           title={showPassword ? "Hide password" : "Show password"}
           onClick={() => setShowPassword((current) => !current)}
           disabled={isSubmitting}
+          size="icon"
+          variant="outline"
         >
           {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-        </button>
+        </Button>
       </div>
 
       {success ? <p className="success-message" role="status">{success}</p> : null}
       {error ? <p className="form-error" role="alert">{error}</p> : null}
 
-      <button className="button primary-button login-button" type="submit" disabled={isSubmitting}>
+      <Button className="login-button" type="submit" disabled={isSubmitting}>
         <LogIn size={18} aria-hidden="true" />
         {isSubmitting ? "Signing in" : "Sign in"}
-      </button>
+      </Button>
 
-      <button
-        className="button secondary-button login-button"
+      <Button
+        className="login-button"
         type="button"
         onClick={handleRequestReset}
         disabled={isRequestingCode || isSubmitting}
+        variant="outline"
       >
         <Mail size={18} aria-hidden="true" />
         {isRequestingCode ? "Sending code" : "Forgot password?"}
-      </button>
+      </Button>
     </form>
   );
 }

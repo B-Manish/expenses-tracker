@@ -6,6 +6,9 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import SelectControl from "../components/SelectControl.jsx";
+import { Button } from "../components/ui/button.jsx";
+import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
 import { formatCategoryLabel } from "../utils/categories.js";
 import { formatCurrencyFromPaise, paiseToRupeesInputValue } from "../utils/currency.js";
@@ -24,6 +27,9 @@ const EMPTY_FORM = {
   notes: "",
   title: "",
 };
+const FREQUENCY_OPTIONS = [
+  { label: "Monthly", value: "MONTHLY" },
+];
 
 function recurringExpenseToFormValues(expense) {
   return {
@@ -139,6 +145,13 @@ export default function RecurringExpenses() {
       .reduce((total, expense) => total + Number(expense.amountPaise || 0), 0),
     [items],
   );
+  const categoryOptions = useMemo(() => [
+    { label: "Choose category", value: "" },
+    ...state.categories.map((category) => ({
+      label: formatCategoryLabel(category),
+      value: String(category.id),
+    })),
+  ], [state.categories]);
   const isSubmitting = formState.status === "submitting";
 
   function resetForm(message = "") {
@@ -327,7 +340,7 @@ export default function RecurringExpenses() {
           <div className="settings-form-grid">
             <label className="form-field">
               <span>Name</span>
-              <input
+              <Input
                 autoComplete="off"
                 disabled={isSubmitting}
                 maxLength={120}
@@ -342,7 +355,7 @@ export default function RecurringExpenses() {
 
             <label className="form-field">
               <span>Amount</span>
-              <input
+              <Input
                 autoComplete="off"
                 disabled={isSubmitting}
                 inputMode="decimal"
@@ -357,26 +370,20 @@ export default function RecurringExpenses() {
 
             <label className="form-field">
               <span>Category</span>
-              <select
+              <SelectControl
                 disabled={isSubmitting || state.categories.length === 0}
-                onChange={(event) => updateFormField("categoryId", event.target.value)}
-                required
+                onChange={(value) => updateFormField("categoryId", value)}
+                options={categoryOptions}
+                placeholder="Choose category"
                 value={formState.values.categoryId}
-              >
-                <option value="">Choose category</option>
-                {state.categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {formatCategoryLabel(category)}
-                  </option>
-                ))}
-              </select>
+              />
               {state.categories.length === 0 ? <span className="field-hint">No expense categories returned.</span> : null}
               {formState.errors.categoryId ? <span className="field-error">{formState.errors.categoryId}</span> : null}
             </label>
 
             <label className="form-field">
               <span>Billing day</span>
-              <input
+              <Input
                 disabled={isSubmitting}
                 max="31"
                 min="1"
@@ -390,9 +397,12 @@ export default function RecurringExpenses() {
 
             <label className="form-field">
               <span>Frequency</span>
-              <select disabled={isSubmitting} onChange={(event) => updateFormField("frequency", event.target.value)} value={formState.values.frequency}>
-                <option value="MONTHLY">Monthly</option>
-              </select>
+              <SelectControl
+                disabled={isSubmitting}
+                onChange={(value) => updateFormField("frequency", value)}
+                options={FREQUENCY_OPTIONS}
+                value={formState.values.frequency}
+              />
               {formState.errors.frequency ? <span className="field-error">{formState.errors.frequency}</span> : null}
             </label>
 
@@ -428,20 +438,20 @@ export default function RecurringExpenses() {
 
           <div className="form-actions">
             {formState.editingId ? (
-              <button
-                className="button secondary-button"
+              <Button
                 disabled={isSubmitting}
                 onClick={() => resetForm()}
                 type="button"
+                variant="outline"
               >
                 <X size={18} aria-hidden="true" />
                 Cancel edit
-              </button>
+              </Button>
             ) : null}
-            <button className="button primary-button" disabled={isSubmitting} type="submit">
+            <Button disabled={isSubmitting} type="submit">
               {formState.editingId ? <Save size={18} aria-hidden="true" /> : <PlusCircle size={18} aria-hidden="true" />}
               {isSubmitting ? "Saving" : formState.editingId ? "Save recurring expense" : "Add recurring expense"}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
@@ -471,29 +481,32 @@ export default function RecurringExpenses() {
                 </div>
                 <span className="amount expense-text">{formatCurrencyFromPaise(expense.amountPaise)}</span>
                 <div className="row-actions">
-                  <button
+                  <Button
                     aria-label={`Edit ${expense.title}`}
-                    className="icon-button"
                     onClick={() => startEdit(expense)}
+                    size="icon"
                     title={`Edit ${expense.title}`}
                     type="button"
+                    variant="outline"
                   >
                     <Edit3 size={16} aria-hidden="true" />
-                  </button>
+                  </Button>
                   {expense.isActive ? (
-                    <button
+                    <Button
                       aria-label={`Deactivate ${expense.title}`}
-                      className="icon-button danger-icon-button"
+                      className="danger-icon-button"
                       onClick={() => setDeleteState({
                         error: "",
                         expense,
                         status: "idle",
                       })}
+                      size="icon"
                       title={`Deactivate ${expense.title}`}
                       type="button"
+                      variant="outline"
                     >
                       <Trash2 size={16} aria-hidden="true" />
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </li>

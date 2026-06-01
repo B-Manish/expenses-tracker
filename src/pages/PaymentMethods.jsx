@@ -6,6 +6,8 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import { Button } from "../components/ui/button.jsx";
+import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
 import {
   getErrorMessage,
@@ -262,7 +264,7 @@ export default function PaymentMethods() {
         <form className="settings-form" onSubmit={handleSubmit}>
           <label className="form-field">
             <span>Name</span>
-            <input
+            <Input
               autoComplete="off"
               disabled={isSubmitting}
               maxLength={80}
@@ -279,20 +281,20 @@ export default function PaymentMethods() {
 
           <div className="form-actions">
             {formState.editingId ? (
-              <button
-                className="button secondary-button"
+              <Button
                 disabled={isSubmitting}
                 onClick={() => resetForm()}
                 type="button"
+                variant="outline"
               >
                 <X size={18} aria-hidden="true" />
                 Cancel edit
-              </button>
+              </Button>
             ) : null}
-            <button className="button primary-button" disabled={isSubmitting} type="submit">
+            <Button disabled={isSubmitting} type="submit">
               {formState.editingId ? <Save size={18} aria-hidden="true" /> : <PlusCircle size={18} aria-hidden="true" />}
               {isSubmitting ? "Saving" : formState.editingId ? "Save method" : "Add method"}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
@@ -314,28 +316,31 @@ export default function PaymentMethods() {
                     <span className="default-pill">Default</span>
                   ) : (
                     <>
-                      <button
+                      <Button
                         aria-label={`Edit ${method.name}`}
-                        className="icon-button"
                         onClick={() => startEdit(method)}
+                        size="icon"
                         title={`Edit ${method.name}`}
                         type="button"
+                        variant="outline"
                       >
                         <Edit3 size={16} aria-hidden="true" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         aria-label={`Delete ${method.name}`}
-                        className="icon-button danger-icon-button"
+                        className="danger-icon-button"
                         onClick={() => setDeleteState({
                           error: "",
                           method,
                           status: "idle",
                         })}
+                        size="icon"
                         title={`Delete ${method.name}`}
                         type="button"
+                        variant="outline"
                       >
                         <Trash2 size={16} aria-hidden="true" />
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>

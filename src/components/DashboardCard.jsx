@@ -1,3 +1,11 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./ui/card.jsx";
+
 export default function DashboardCard({
   actions = null,
   children,
@@ -6,18 +14,18 @@ export default function DashboardCard({
   title,
   titleId,
 }) {
-  const cardClassName = ["panel", "dashboard-card", className].filter(Boolean).join(" ");
+  const cardClassName = ["dashboard-card", className].filter(Boolean).join(" ");
 
   return (
-    <section className={cardClassName} aria-labelledby={titleId}>
-      <div className="panel-header">
-        <div>
-          <h2 id={titleId}>{title}</h2>
-          {description ? <p>{description}</p> : null}
+    <Card className={cardClassName} as="section" aria-labelledby={titleId}>
+      <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+        <div className="grid gap-1">
+          <CardTitle id={titleId}>{title}</CardTitle>
+          {description ? <CardDescription>{description}</CardDescription> : null}
         </div>
         {actions ? <div className="panel-actions">{actions}</div> : null}
-      </div>
-      {children}
-    </section>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }

@@ -6,6 +6,10 @@ import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import SelectControl from "../components/SelectControl.jsx";
+import { Button } from "../components/ui/button.jsx";
+import { Input } from "../components/ui/input.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.jsx";
 import { ApiError, api } from "../services/api.js";
 import {
   getErrorMessage,
@@ -20,6 +24,10 @@ const EMPTY_CATEGORY_FORM = {
   parentId: "",
   type: "EXPENSE",
 };
+const TYPE_OPTIONS = [
+  { label: "Expense", value: "EXPENSE" },
+  { label: "Income", value: "INCOME" },
+];
 
 function categoryToFormValues(category) {
   return {
@@ -159,6 +167,13 @@ export default function Categories() {
         category.id !== formState.editingId
       ))
   ), [formState.editingId, formState.values.type, state.data]);
+  const parentOptions = useMemo(() => [
+    { label: "None - top-level category", value: "" },
+    ...topLevelParents.map((category) => ({
+      label: category.name,
+      value: String(category.id),
+    })),
+  ], [topLevelParents]);
   const isSubmitting = formState.status === "submitting";
 
   function resetForm(message = "") {
@@ -319,28 +334,31 @@ export default function Categories() {
             <span className="default-pill">Default</span>
           ) : (
             <>
-              <button
+              <Button
                 aria-label={`Edit ${category.name}`}
-                className="icon-button"
                 onClick={() => startEdit(category)}
+                size="icon"
                 title={`Edit ${category.name}`}
                 type="button"
+                variant="outline"
               >
                 <Edit3 size={16} aria-hidden="true" />
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-label={`Delete ${category.name}`}
-                className="icon-button danger-icon-button"
+                className="danger-icon-button"
                 onClick={() => setDeleteState({
                   category,
                   error: "",
                   status: "idle",
                 })}
+                size="icon"
                 title={`Delete ${category.name}`}
                 type="button"
+                variant="outline"
               >
                 <Trash2 size={16} aria-hidden="true" />
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -439,7 +457,7 @@ export default function Categories() {
           <div className="settings-form-grid">
             <label className="form-field">
               <span>Name</span>
-              <input
+              <Input
                 autoComplete="off"
                 disabled={isSubmitting}
                 maxLength={80}
@@ -455,31 +473,24 @@ export default function Categories() {
 
             <label className="form-field">
               <span>Type</span>
-              <select
+              <SelectControl
                 disabled={isSubmitting}
-                onChange={(event) => updateFormField("type", event.target.value)}
+                onChange={(value) => updateFormField("type", value)}
+                options={TYPE_OPTIONS}
                 value={formState.values.type}
-              >
-                <option value="EXPENSE">Expense</option>
-                <option value="INCOME">Income</option>
-              </select>
+              />
               {formState.errors.type ? <span className="field-error">{formState.errors.type}</span> : null}
             </label>
 
             <label className="form-field">
               <span>Parent category</span>
-              <select
+              <SelectControl
                 disabled={isSubmitting || topLevelParents.length === 0}
-                onChange={(event) => updateFormField("parentId", event.target.value)}
+                onChange={(value) => updateFormField("parentId", value)}
+                options={parentOptions}
+                placeholder="Choose parent category"
                 value={formState.values.parentId}
-              >
-                <option value="">None - top-level category</option>
-                {topLevelParents.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
+              />
               <span className="field-hint">Choose a parent to create a subcategory.</span>
               {formState.errors.parentId ? <span className="field-error">{formState.errors.parentId}</span> : null}
             </label>
@@ -487,14 +498,14 @@ export default function Categories() {
             <label className="form-field">
               <span>Color</span>
               <div className="color-picker-field">
-                <input
+                <Input
                   aria-label="Choose category color"
                   disabled={isSubmitting}
                   onChange={(event) => updateFormField("color", event.target.value)}
                   type="color"
                   value={formState.values.color || "#64748b"}
                 />
-                <input
+                <Input
                   aria-label="Category color hex value"
                   autoComplete="off"
                   disabled={isSubmitting}
@@ -510,7 +521,7 @@ export default function Categories() {
 
             <label className="form-field">
               <span>Icon key</span>
-              <input
+              <Input
                 autoComplete="off"
                 disabled={isSubmitting}
                 maxLength={64}
@@ -528,30 +539,36 @@ export default function Categories() {
 
           <div className="form-actions">
             {formState.editingId ? (
-              <button
-                className="button secondary-button"
+              <Button
                 disabled={isSubmitting}
                 onClick={() => resetForm()}
                 type="button"
+                variant="outline"
               >
                 <X size={18} aria-hidden="true" />
                 Cancel edit
-              </button>
+              </Button>
             ) : null}
-            <button className="button primary-button" disabled={isSubmitting} type="submit">
+            <Button disabled={isSubmitting} type="submit">
               {formState.editingId ? <Save size={18} aria-hidden="true" /> : <PlusCircle size={18} aria-hidden="true" />}
               {isSubmitting ? "Saving" : formState.editingId ? "Save category" : "Add category"}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
 
-      <div className="content-grid two-column-grid">
-        {[
-          ["Expense", grouped.expense],
-          ["Income", grouped.income],
-        ].map(([label, items]) => renderCategoryList(label, items))}
-      </div>
+      <Tabs defaultValue="expense">
+        <TabsList aria-label="Category type">
+          <TabsTrigger value="expense">Expense</TabsTrigger>
+          <TabsTrigger value="income">Income</TabsTrigger>
+        </TabsList>
+        <TabsContent value="expense">
+          {renderCategoryList("Expense", grouped.expense)}
+        </TabsContent>
+        <TabsContent value="income">
+          {renderCategoryList("Income", grouped.income)}
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         confirmLabel="Delete category"
