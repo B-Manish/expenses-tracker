@@ -1,6 +1,6 @@
 import { CalendarDays, Edit3, ReceiptText, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { formatDisplayDate } from "../utils/dateUtils.js";
+import { formatDisplayDateTime } from "../utils/dateUtils.js";
 import AmountText from "./AmountText.jsx";
 import CategoryBadge from "./CategoryBadge.jsx";
 
@@ -56,7 +56,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
               <th scope="col">Type</th>
               <th scope="col">Category</th>
               <th scope="col">Payment</th>
-              <th scope="col">Date</th>
+              <th scope="col">Date & time</th>
               <th scope="col">Amount</th>
               <th scope="col">Actions</th>
             </tr>
@@ -73,7 +73,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
                 <td><TypeBadge type={transaction.type} /></td>
                 <td><CategoryLabel transaction={transaction} /></td>
                 <td>{transaction.paymentMethodName || "Not set"}</td>
-                <td>{formatDisplayDate(transaction.transactionDate)}</td>
+                <td>{formatDisplayDateTime(transaction.transactionDate, transaction.transactionTime)}</td>
                 <td>
                   <AmountText amountPaise={transaction.amountPaise} type={transaction.type} />
                 </td>
@@ -112,10 +112,10 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
                 <dd>{transaction.paymentMethodName || "Not set"}</dd>
               </div>
               <div>
-                <dt>Date</dt>
+                <dt>Date & time</dt>
                 <dd>
                   <CalendarDays size={15} aria-hidden="true" />
-                  {formatDisplayDate(transaction.transactionDate)}
+                  {formatDisplayDateTime(transaction.transactionDate, transaction.transactionTime)}
                 </dd>
               </div>
             </dl>

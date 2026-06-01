@@ -12,11 +12,12 @@ import {
 
 const TRANSACTION_TYPES = ["EXPENSE", "INCOME"];
 const TRANSACTION_FILTER_TYPES = ["ALL", ...TRANSACTION_TYPES];
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DEFAULT_SORT = "transaction_date_desc";
 const SORT_CLAUSES = Object.freeze({
   transaction_date_desc:
-    "t.transaction_date DESC, t.created_at DESC, t.id DESC",
-  transaction_date_asc: "t.transaction_date ASC, t.created_at ASC, t.id ASC",
+    "t.transaction_date DESC, t.transaction_time DESC, t.created_at DESC, t.id DESC",
+  transaction_date_asc: "t.transaction_date ASC, t.transaction_time ASC, t.created_at ASC, t.id ASC",
   created_at_desc: "t.created_at DESC, t.id DESC",
   created_at_asc: "t.created_at ASC, t.id ASC",
 });
@@ -37,6 +38,7 @@ const SELECT_TRANSACTION_SQL = `
     t.payment_method_id,
     pm.name AS payment_method_name,
     t.transaction_date,
+    t.transaction_time,
     t.merchant,
     t.notes,
     t.created_at,
@@ -109,6 +111,7 @@ function normalizeTransactionBody(value) {
     categoryId: value.categoryId ?? value.category_id,
     paymentMethodId: value.paymentMethodId ?? value.payment_method_id,
     transactionDate: value.transactionDate ?? value.transaction_date,
+    transactionTime: value.transactionTime ?? value.transaction_time,
     merchant: value.merchant,
     notes: value.notes,
   };
@@ -226,6 +229,7 @@ const transactionPayloadSchema = z
         categoryId: optionalIdSchema(),
         paymentMethodId: optionalIdSchema(),
         transactionDate: dateSchema,
+        transactionTime: z.string().trim().regex(TIME_PATTERN, "Time must be in HH:mm format"),
         merchant: optionalStringSchema("Merchant", 120),
         notes: optionalStringSchema("Notes", 1000),
       })
@@ -247,6 +251,7 @@ const transactionPayloadSchema = z
         categoryId: value.categoryId,
         paymentMethodId: value.paymentMethodId,
         transactionDate: value.transactionDate,
+        transactionTime: value.transactionTime,
         merchant: value.merchant,
         notes: value.notes,
       })),
@@ -329,6 +334,7 @@ function mapTransactionRow(row) {
         }
       : null,
     transactionDate: row.transaction_date,
+    transactionTime: row.transaction_time,
     merchant: row.merchant,
     notes: row.notes,
     createdAt: row.created_at,
@@ -482,10 +488,11 @@ export async function createTransaction(db, transaction) {
         category_id,
         payment_method_id,
         transaction_date,
+        transaction_time,
         merchant,
         notes
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       transaction.type,
@@ -494,6 +501,7 @@ export async function createTransaction(db, transaction) {
       transaction.categoryId,
       transaction.paymentMethodId,
       transaction.transactionDate,
+      transaction.transactionTime,
       transaction.merchant,
       transaction.notes,
     )
@@ -526,6 +534,7 @@ export async function updateTransaction(db, id, transaction) {
         category_id = ?,
         payment_method_id = ?,
         transaction_date = ?,
+        transaction_time = ?,
         merchant = ?,
         notes = ?,
         updated_at = CURRENT_TIMESTAMP
@@ -538,6 +547,7 @@ export async function updateTransaction(db, id, transaction) {
       transaction.categoryId,
       transaction.paymentMethodId,
       transaction.transactionDate,
+      transaction.transactionTime,
       transaction.merchant,
       transaction.notes,
       id,

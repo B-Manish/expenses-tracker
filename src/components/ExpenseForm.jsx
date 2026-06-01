@@ -2,7 +2,7 @@ import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
 import { formatCategoryLabel } from "../utils/categories.js";
 import { paiseToRupeesInputValue } from "../utils/currency.js";
-import { getTodayInKolkata } from "../utils/dateUtils.js";
+import { getCurrentTimeInKolkata, getTodayInKolkata } from "../utils/dateUtils.js";
 import { getFirstValidationError, validateTransactionForm } from "../utils/validation.js";
 
 const TYPE_OPTIONS = [
@@ -19,6 +19,7 @@ function buildInitialValues(transaction) {
     paymentMethodId: transaction?.paymentMethodId ? String(transaction.paymentMethodId) : "",
     title: transaction?.title || "",
     transactionDate: transaction?.transactionDate || getTodayInKolkata(),
+    transactionTime: transaction?.transactionTime || getCurrentTimeInKolkata(),
     type: transaction?.type || "EXPENSE",
   };
 }
@@ -38,6 +39,7 @@ function buildPayload(values) {
     paymentMethodId: values.paymentMethodId ? Number(values.paymentMethodId) : null,
     title: values.title.trim(),
     transactionDate: values.transactionDate,
+    transactionTime: values.transactionTime,
     type: values.type,
   };
 }
@@ -169,6 +171,18 @@ export default function ExpenseForm({
             value={values.transactionDate}
           />
           {errors.transactionDate ? <span className="field-error">{errors.transactionDate}</span> : null}
+        </label>
+
+        <label className="form-field">
+          <span>Time</span>
+          <input
+            disabled={isSubmitting}
+            onChange={(event) => updateField("transactionTime", event.target.value)}
+            required
+            type="time"
+            value={values.transactionTime}
+          />
+          {errors.transactionTime ? <span className="field-error">{errors.transactionTime}</span> : null}
         </label>
 
         <label className="form-field">

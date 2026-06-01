@@ -1,5 +1,5 @@
 import { parseRupeesToPaiseInput } from "./currency.js";
-import { isValidDateInput } from "./dateUtils.js";
+import { isValidDateInput, isValidTimeInput } from "./dateUtils.js";
 
 export function getErrorMessage(error, fallback = "Something went wrong.") {
   if (typeof error === "string" && error.trim()) {
@@ -113,6 +113,10 @@ export function validateTransactionForm(values, options = {}) {
 
   if (!isValidDateInput(values.transactionDate || "")) {
     errors.transactionDate = "Enter a valid date.";
+  }
+
+  if (!isValidTimeInput(values.transactionTime || "")) {
+    errors.transactionTime = "Enter a valid time.";
   }
 
   const category = findById(categories, values.categoryId);

@@ -26,7 +26,7 @@ import StatCard from "../components/StatCard.jsx";
 import TrendChart from "../components/TrendChart.jsx";
 import { ApiError, api } from "../services/api.js";
 import { formatCurrencyFromPaise, formatSignedCurrencyFromPaise } from "../utils/currency.js";
-import { formatDisplayDate } from "../utils/dateUtils.js";
+import { formatDisplayDateTime } from "../utils/dateUtils.js";
 import { getErrorMessage } from "../utils/validation.js";
 
 function toAmount(value) {
@@ -101,7 +101,7 @@ function RecentTransactions({ items = [] }) {
               {transaction.title || "Untitled transaction"}
             </Link>
             <span>
-              {formatDisplayDate(transaction.transactionDate)}
+              {formatDisplayDateTime(transaction.transactionDate, transaction.transactionTime)}
               {transaction.categoryName ? ` - ${transaction.categoryName}` : ""}
             </span>
           </div>
@@ -311,7 +311,10 @@ export default function Dashboard() {
   const insights = [
     {
       detail: biggestExpense
-        ? `${biggestExpense.title || "Untitled"} on ${formatDisplayDate(biggestExpense.transactionDate)}`
+        ? `${biggestExpense.title || "Untitled"} on ${formatDisplayDateTime(
+          biggestExpense.transactionDate,
+          biggestExpense.transactionTime,
+        )}`
         : "No expenses in this period",
       icon: Trophy,
       label: "Biggest expense",

@@ -253,6 +253,7 @@ async function getBiggestExpense(db, range) {
         t.title,
         t.amount_paise,
         t.transaction_date,
+        t.transaction_time,
         c.name AS category_name,
         pc.name AS category_parent_name
       FROM transactions t
@@ -260,7 +261,7 @@ async function getBiggestExpense(db, range) {
       LEFT JOIN categories pc ON pc.id = c.parent_id
       WHERE t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
-      ORDER BY t.amount_paise DESC, t.transaction_date DESC, t.created_at DESC, t.id DESC
+      ORDER BY t.amount_paise DESC, t.transaction_date DESC, t.transaction_time DESC, t.created_at DESC, t.id DESC
       LIMIT 1
     `)
     .bind(range.from, range.to)
@@ -275,6 +276,7 @@ async function getBiggestExpense(db, range) {
     title: row.title,
     amountPaise: toInteger(row.amount_paise),
     transactionDate: row.transaction_date,
+    transactionTime: row.transaction_time,
     categoryName: row.category_parent_name
       ? `${row.category_parent_name} / ${row.category_name}`
       : row.category_name ?? null,
@@ -298,6 +300,7 @@ function getBiggestRecurringExpense(recurringExpenses, range) {
     title: biggest.title,
     amountPaise: biggest.amountPaise,
     transactionDate: biggest.date,
+    transactionTime: biggest.transactionTime,
     categoryName: biggest.categoryName,
     source: "RECURRING",
   };
@@ -513,6 +516,7 @@ function mapRecentTransaction(row) {
     paymentMethodId: row.payment_method_id ?? null,
     paymentMethodName: row.payment_method_name ?? null,
     transactionDate: row.transaction_date,
+    transactionTime: row.transaction_time,
     merchant: row.merchant,
     notes: row.notes,
     createdAt: row.created_at,
@@ -535,6 +539,7 @@ async function getRecentTransactions(db) {
         t.payment_method_id,
         pm.name AS payment_method_name,
         t.transaction_date,
+        t.transaction_time,
         t.merchant,
         t.notes,
         t.created_at,
@@ -543,7 +548,7 @@ async function getRecentTransactions(db) {
       LEFT JOIN categories c ON c.id = t.category_id
       LEFT JOIN categories pc ON pc.id = c.parent_id
       LEFT JOIN payment_methods pm ON pm.id = t.payment_method_id
-      ORDER BY t.transaction_date DESC, t.created_at DESC, t.id DESC
+      ORDER BY t.transaction_date DESC, t.transaction_time DESC, t.created_at DESC, t.id DESC
       LIMIT ?
     `)
     .bind(RECENT_TRANSACTION_LIMIT)

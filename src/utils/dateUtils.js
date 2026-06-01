@@ -17,11 +17,25 @@ const MONTH_FORMATTER = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
+const DISPLAY_TIME_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+  hour: "numeric",
+  hour12: true,
+  minute: "2-digit",
+  timeZone: "Asia/Kolkata",
+});
+
 const KOLKATA_DATE_PARTS_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   day: "2-digit",
   month: "2-digit",
   timeZone: "Asia/Kolkata",
   year: "numeric",
+});
+
+const KOLKATA_TIME_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  hourCycle: "h23",
+  minute: "2-digit",
+  timeZone: "Asia/Kolkata",
 });
 
 function parseDate(value) {
@@ -44,6 +58,21 @@ export function formatDisplayDate(value) {
   }
 
   return DISPLAY_DATE_FORMATTER.format(date);
+}
+
+export function formatDisplayTime(value) {
+  if (typeof value !== "string" || !isValidTimeInput(value)) {
+    return "";
+  }
+
+  return DISPLAY_TIME_FORMATTER.format(new Date(`2000-01-01T${value}:00+05:30`));
+}
+
+export function formatDisplayDateTime(dateValue, timeValue) {
+  const dateText = formatDisplayDate(dateValue);
+  const timeText = formatDisplayTime(timeValue);
+
+  return timeText ? `${dateText}, ${timeText}` : dateText;
 }
 
 export function formatCompactDateLabel(value) {
@@ -83,11 +112,28 @@ export function isValidDateInput(value) {
   );
 }
 
+export function isValidTimeInput(value) {
+  if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [hour, minute] = value.split(":").map(Number);
+
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59;
+}
+
 export function getTodayInKolkata() {
   const parts = KOLKATA_DATE_PARTS_FORMATTER.formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
 
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function getCurrentTimeInKolkata() {
+  const parts = KOLKATA_TIME_PARTS_FORMATTER.formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.hour}:${values.minute}`;
 }
 
 export function formatDateRange(from, to) {

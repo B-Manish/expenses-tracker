@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS transactions (
     length(transaction_date) = 10
     AND transaction_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
   ),
+  transaction_time TEXT NOT NULL DEFAULT '00:00' CHECK (
+    length(transaction_time) = 5
+    AND transaction_time GLOB '[0-2][0-9]:[0-5][0-9]'
+    AND CAST(substr(transaction_time, 1, 2) AS INTEGER) BETWEEN 0 AND 23
+  ),
   merchant TEXT,
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
