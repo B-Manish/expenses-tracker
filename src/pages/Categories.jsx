@@ -1,5 +1,5 @@
 import { Edit3, PlusCircle, Save, Tags, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -83,6 +83,8 @@ function groupCategories(items) {
 
 export default function Categories() {
   const navigate = useNavigate();
+  const formPanelRef = useRef(null);
+  const nameInputRef = useRef(null);
   const [state, setState] = useState({
     data: null,
     error: "",
@@ -193,6 +195,13 @@ export default function Categories() {
       message: "",
       status: "idle",
       values: categoryToFormValues(category),
+    });
+    window.requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      nameInputRef.current?.focus({ preventScroll: true });
     });
   }
 
@@ -415,7 +424,7 @@ export default function Categories() {
         </p>
       ) : null}
 
-      <section className="panel" aria-labelledby="category-form-title">
+      <section className="panel" aria-labelledby="category-form-title" ref={formPanelRef}>
         <div className="panel-header">
           <div>
             <h2 id="category-form-title">
@@ -436,6 +445,7 @@ export default function Categories() {
                 maxLength={80}
                 onChange={(event) => updateFormField("name", event.target.value)}
                 placeholder="Subscriptions"
+                ref={nameInputRef}
                 required
                 type="text"
                 value={formState.values.name}
