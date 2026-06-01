@@ -17,6 +17,7 @@ const EMPTY_CATEGORY_FORM = {
   color: "#64748b",
   icon: "circle",
   name: "",
+  parentId: "",
   type: "EXPENSE",
 };
 
@@ -25,6 +26,7 @@ function categoryToFormValues(category) {
     color: category.color || "",
     icon: category.icon || "",
     name: category.name || "",
+    parentId: category.parentId ? String(category.parentId) : "",
     type: category.type || "EXPENSE",
   };
 }
@@ -37,14 +39,45 @@ function buildCategoryPayload(values) {
     color: color || null,
     icon: icon || null,
     name: values.name.trim(),
+    parentId: values.parentId ? Number(values.parentId) : null,
     type: values.type,
   };
 }
 
+function buildCategoryTree(items) {
+  const topLevel = items
+    .filter((category) => !category.parentId)
+    .map((category) => ({
+      ...category,
+      subcategories: [],
+    }));
+  const byId = new Map(topLevel.map((category) => [category.id, category]));
+  const orphanSubcategories = [];
+
+  for (const category of items) {
+    if (!category.parentId) {
+      continue;
+    }
+
+    const parent = byId.get(category.parentId);
+
+    if (parent) {
+      parent.subcategories.push(category);
+    } else {
+      orphanSubcategories.push({
+        ...category,
+        subcategories: [],
+      });
+    }
+  }
+
+  return [...topLevel, ...orphanSubcategories];
+}
+
 function groupCategories(items) {
   return {
-    expense: items.filter((category) => category.type === "EXPENSE"),
-    income: items.filter((category) => category.type === "INCOME"),
+    expense: buildCategoryTree(items.filter((category) => category.type === "EXPENSE")),
+    income: buildCategoryTree(items.filter((category) => category.type === "INCOME")),
   };
 }
 
@@ -116,6 +149,14 @@ export default function Categories() {
   }, [loadCategories]);
 
   const grouped = useMemo(() => groupCategories(state.data?.items || []), [state.data]);
+  const topLevelParents = useMemo(() => (
+    (state.data?.items || [])
+      .filter((category) => (
+        !category.parentId &&
+        category.type === formState.values.type &&
+        category.id !== formState.editingId
+      ))
+  ), [formState.editingId, formState.values.type, state.data]);
   const isSubmitting = formState.status === "submitting";
 
   function resetForm(message = "") {
@@ -139,6 +180,7 @@ export default function Categories() {
       values: {
         ...current.values,
         [field]: value,
+        ...(field === "type" ? { parentId: "" } : {}),
       },
     }));
   }
@@ -157,7 +199,9 @@ export default function Categories() {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    const validation = validateCategoryForm(formState.values);
+    const validation = validateCategoryForm(formState.values, {
+      categories: state.data?.items || [],
+    });
 
     if (!validation.isValid) {
       setFormState((current) => ({
@@ -240,57 +284,90 @@ export default function Categories() {
     }
   }
 
+  function renderCategoryRow(category, options = {}) {
+    const isSubcategory = options.isSubcategory || false;
+    const typeLabel = category.isDefault
+      ? "Default category"
+      : isSubcategory
+        ? "Custom subcategory"
+        : "Custom category";
+
+    return (
+      <div
+        className={isSubcategory ? "list-row management-row subcategory-row" : "list-row management-row"}
+      >
+        <span
+          className="category-color"
+          style={{ backgroundColor: category.color || "#64748b" }}
+          aria-hidden="true"
+        />
+        <div className="list-content">
+          <strong>{category.name}</strong>
+          <span>{typeLabel}</span>
+        </div>
+        <div className="row-actions">
+          {category.isDefault ? (
+            <span className="default-pill">Default</span>
+          ) : (
+            <>
+              <button
+                aria-label={`Edit ${category.name}`}
+                className="icon-button"
+                onClick={() => startEdit(category)}
+                title={`Edit ${category.name}`}
+                type="button"
+              >
+                <Edit3 size={16} aria-hidden="true" />
+              </button>
+              <button
+                aria-label={`Delete ${category.name}`}
+                className="icon-button danger-icon-button"
+                onClick={() => setDeleteState({
+                  category,
+                  error: "",
+                  status: "idle",
+                })}
+                title={`Delete ${category.name}`}
+                type="button"
+              >
+                <Trash2 size={16} aria-hidden="true" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   function renderCategoryList(label, items) {
+    const subcategoryCount = items.reduce(
+      (total, category) => total + category.subcategories.length,
+      0,
+    );
+
     return (
       <section className="panel" aria-labelledby={`${label.toLowerCase()}-categories-title`} key={label}>
         <div className="panel-header">
           <h2 id={`${label.toLowerCase()}-categories-title`}>{label}</h2>
-          <p>{items.length} items</p>
+          <p>{items.length} categories, {subcategoryCount} subcategories</p>
         </div>
 
         {items.length ? (
           <ul className="item-list">
             {items.map((category) => (
-              <li className="list-row management-row" key={category.id}>
-                <span
-                  className="category-color"
-                  style={{ backgroundColor: category.color || "#64748b" }}
-                  aria-hidden="true"
-                />
-                <div className="list-content">
-                  <strong>{category.name}</strong>
-                  <span>{category.isDefault ? "Default category" : "Custom category"}</span>
-                </div>
-                <div className="row-actions">
-                  {category.isDefault ? (
-                    <span className="default-pill">Default</span>
-                  ) : (
-                    <>
-                      <button
-                        aria-label={`Edit ${category.name}`}
-                        className="icon-button"
-                        onClick={() => startEdit(category)}
-                        title={`Edit ${category.name}`}
-                        type="button"
-                      >
-                        <Edit3 size={16} aria-hidden="true" />
-                      </button>
-                      <button
-                        aria-label={`Delete ${category.name}`}
-                        className="icon-button danger-icon-button"
-                        onClick={() => setDeleteState({
-                          category,
-                          error: "",
-                          status: "idle",
+              <li className="category-group" key={category.id}>
+                {renderCategoryRow(category)}
+                {category.subcategories.length ? (
+                  <ul className="subcategory-list">
+                    {category.subcategories.map((subcategory) => (
+                      <li key={subcategory.id}>
+                        {renderCategoryRow(subcategory, {
+                          isSubcategory: true,
                         })}
-                        title={`Delete ${category.name}`}
-                        type="button"
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                      </button>
-                    </>
-                  )}
-                </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -345,6 +422,7 @@ export default function Categories() {
               {formState.editingId ? "Edit custom category" : "Add custom category"}
             </h2>
             <p>Default categories are kept read-only so seeded app data stays predictable.</p>
+            <p>Add a top-level category, or choose a parent to nest a subcategory inside it.</p>
           </div>
         </div>
 
@@ -376,6 +454,24 @@ export default function Categories() {
                 <option value="INCOME">Income</option>
               </select>
               {formState.errors.type ? <span className="field-error">{formState.errors.type}</span> : null}
+            </label>
+
+            <label className="form-field">
+              <span>Parent category</span>
+              <select
+                disabled={isSubmitting || topLevelParents.length === 0}
+                onChange={(event) => updateFormField("parentId", event.target.value)}
+                value={formState.values.parentId}
+              >
+                <option value="">None - top-level category</option>
+                {topLevelParents.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <span className="field-hint">Choose a parent to create a subcategory.</span>
+              {formState.errors.parentId ? <span className="field-error">{formState.errors.parentId}</span> : null}
             </label>
 
             <label className="form-field">

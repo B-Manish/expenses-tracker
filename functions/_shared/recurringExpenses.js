@@ -21,6 +21,8 @@ const SELECT_RECURRING_EXPENSE_SQL = `
     c.type AS category_type,
     c.color AS category_color,
     c.icon AS category_icon,
+    c.parent_id AS category_parent_id,
+    pc.name AS category_parent_name,
     re.billing_day,
     re.frequency,
     re.notes,
@@ -29,6 +31,7 @@ const SELECT_RECURRING_EXPENSE_SQL = `
     re.updated_at
   FROM recurring_expenses re
   LEFT JOIN categories c ON c.id = re.category_id
+  LEFT JOIN categories pc ON pc.id = c.parent_id
 `;
 
 function isPlainObject(value) {
@@ -202,7 +205,9 @@ function mapRecurringExpenseRow(row) {
     name: row.title,
     amountPaise: row.amount_paise,
     categoryId: row.category_id,
-    categoryName: row.category_name ?? null,
+    categoryName: row.category_parent_name
+      ? `${row.category_parent_name} / ${row.category_name}`
+      : row.category_name ?? null,
     category: row.category_id
       ? {
           id: row.category_id,
@@ -210,6 +215,8 @@ function mapRecurringExpenseRow(row) {
           type: row.category_type,
           color: row.category_color,
           icon: row.category_icon,
+          parentId: row.category_parent_id ?? null,
+          parentName: row.category_parent_name ?? null,
         }
       : null,
     billingDay: row.billing_day,

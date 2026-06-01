@@ -7,6 +7,7 @@ import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { ApiError, api } from "../services/api.js";
+import { formatCategoryLabel } from "../utils/categories.js";
 import { formatCurrencyFromPaise, paiseToRupeesInputValue } from "../utils/currency.js";
 import {
   getErrorMessage,
@@ -365,7 +366,7 @@ export default function RecurringExpenses() {
                 <option value="">Choose category</option>
                 {state.categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.name}
+                    {formatCategoryLabel(category)}
                   </option>
                 ))}
               </select>

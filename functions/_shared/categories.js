@@ -46,6 +46,7 @@ function normalizeCategoryPayload(value) {
     type: value.type,
     color: value.color,
     icon: value.icon,
+    parentId: value.parentId ?? value.parent_id,
   };
 }
 
@@ -59,6 +60,7 @@ function normalizeCategoryQuery(input) {
   }
 
   return {
+    includeNested: value.includeNested,
     type: value.type,
   };
 }
@@ -98,12 +100,25 @@ const categoryPayloadSchema = z.preprocess(
     type: enumSchema(CATEGORY_TYPES, "Type"),
     color: optionalColorSchema,
     icon: optionalIconSchema,
+    parentId: z
+      .preprocess(emptyToNull, idSchema.nullable().optional())
+      .transform((value) => value ?? null),
   }),
 );
 
 const categoryQuerySchema = z.preprocess(
   normalizeCategoryQuery,
   z.object({
+    includeNested: z
+      .preprocess(
+        (value) => {
+          const normalized = emptyToUndefined(value);
+
+          return typeof normalized === "boolean" ? String(normalized) : normalized;
+        },
+        z.enum(["true", "false"]).optional(),
+      )
+      .transform((value) => value !== "false"),
     type: z.preprocess(
       emptyToUndefined,
       enumSchema(CATEGORY_TYPES, "Type").optional(),
@@ -118,6 +133,8 @@ function mapCategoryRow(row) {
     type: row.type,
     color: row.color,
     icon: row.icon,
+    parentId: row.parent_id ?? null,
+    parentName: row.parent_name ?? null,
     isDefault: row.is_default === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -165,13 +182,62 @@ async function getCategoryUsageCount(db, id) {
   return row?.count ?? 0;
 }
 
+async function getSubcategoryCount(db, id) {
+  const row = await db
+    .prepare("SELECT COUNT(*) AS count FROM categories WHERE parent_id = ?")
+    .bind(id)
+    .first();
+
+  return row?.count ?? 0;
+}
+
 function assertDefaultCategoryCanBeUpdated(existing, category) {
   if (!existing.isDefault) {
     return;
   }
 
-  if (existing.name !== category.name || existing.type !== category.type) {
-    throw conflict("Default category name and type cannot be changed");
+  if (
+    existing.name !== category.name ||
+    existing.type !== category.type ||
+    existing.parentId !== category.parentId
+  ) {
+    throw conflict("Default category name, type, and parent cannot be changed");
+  }
+}
+
+async function assertCategoryParentIsValid(db, category, id = null) {
+  if (category.parentId === null) {
+    return;
+  }
+
+  if (id !== null && category.parentId === id) {
+    throw badRequest("Category cannot be its own parent");
+  }
+
+  const parent = await getCategoryById(db, category.parentId);
+
+  if (!parent) {
+    throw badRequest("Parent category does not exist");
+  }
+
+  if (parent.parentId !== null) {
+    throw badRequest("Subcategories can only be added under top-level categories");
+  }
+
+  if (parent.type !== category.type) {
+    throw badRequest("Subcategory type must match the parent category type");
+  }
+}
+
+async function assertCategoryCanMoveUnderParent(db, id, category) {
+  if (category.parentId === null) {
+    return;
+  }
+
+  const subcategoryCount = await getSubcategoryCount(db, id);
+
+  if (subcategoryCount > 0) {
+    throw conflict("Categories with subcategories cannot be moved under another category");
   }
 }
 
@@ -188,13 +254,32 @@ export function validateCategoryId(input) {
 }
 
 export async function listCategories(db, query = {}) {
+  const nestedCondition = query.includeNested ? "" : "AND c.parent_id IS NULL";
+
   if (query.type) {
     const rows = await db
       .prepare(`
-        SELECT id, name, type, color, icon, is_default, created_at, updated_at
-        FROM categories
-        WHERE type = ?
-        ORDER BY is_default DESC, LOWER(name) ASC, id ASC
+        SELECT
+          c.id,
+          c.name,
+          c.type,
+          c.color,
+          c.icon,
+          c.parent_id,
+          p.name AS parent_name,
+          c.is_default,
+          c.created_at,
+          c.updated_at
+        FROM categories c
+        LEFT JOIN categories p ON p.id = c.parent_id
+        WHERE c.type = ?
+        ${nestedCondition}
+        ORDER BY
+          COALESCE(LOWER(p.name), LOWER(c.name)) ASC,
+          CASE WHEN c.parent_id IS NULL THEN 0 ELSE 1 END ASC,
+          c.is_default DESC,
+          LOWER(c.name) ASC,
+          c.id ASC
       `)
       .bind(query.type)
       .all();
@@ -206,9 +291,28 @@ export async function listCategories(db, query = {}) {
 
   const rows = await db
     .prepare(`
-      SELECT id, name, type, color, icon, is_default, created_at, updated_at
-      FROM categories
-      ORDER BY type ASC, is_default DESC, LOWER(name) ASC, id ASC
+      SELECT
+        c.id,
+        c.name,
+        c.type,
+        c.color,
+        c.icon,
+        c.parent_id,
+        p.name AS parent_name,
+        c.is_default,
+        c.created_at,
+        c.updated_at
+      FROM categories c
+      LEFT JOIN categories p ON p.id = c.parent_id
+      WHERE 1 = 1
+      ${nestedCondition}
+      ORDER BY
+        c.type ASC,
+        COALESCE(LOWER(p.name), LOWER(c.name)) ASC,
+        CASE WHEN c.parent_id IS NULL THEN 0 ELSE 1 END ASC,
+        c.is_default DESC,
+        LOWER(c.name) ASC,
+        c.id ASC
     `)
     .all();
 
@@ -220,9 +324,20 @@ export async function listCategories(db, query = {}) {
 export async function getCategoryById(db, id) {
   const row = await db
     .prepare(`
-      SELECT id, name, type, color, icon, is_default, created_at, updated_at
-      FROM categories
-      WHERE id = ?
+      SELECT
+        c.id,
+        c.name,
+        c.type,
+        c.color,
+        c.icon,
+        c.parent_id,
+        p.name AS parent_name,
+        c.is_default,
+        c.created_at,
+        c.updated_at
+      FROM categories c
+      LEFT JOIN categories p ON p.id = c.parent_id
+      WHERE c.id = ?
     `)
     .bind(id)
     .first();
@@ -232,13 +347,14 @@ export async function getCategoryById(db, id) {
 
 export async function createCategory(db, category) {
   await assertUniqueCategoryName(db, category.name);
+  await assertCategoryParentIsValid(db, category);
 
   const result = await db
     .prepare(`
-      INSERT INTO categories (name, type, color, icon, is_default)
-      VALUES (?, ?, ?, ?, 0)
+      INSERT INTO categories (name, type, color, icon, parent_id, is_default)
+      VALUES (?, ?, ?, ?, ?, 0)
     `)
-    .bind(category.name, category.type, category.color, category.icon)
+    .bind(category.name, category.type, category.color, category.icon, category.parentId)
     .run();
 
   const id = result.meta?.last_row_id;
@@ -258,11 +374,15 @@ export async function updateCategory(db, id, category) {
   }
 
   assertDefaultCategoryCanBeUpdated(existing, category);
+  await assertCategoryParentIsValid(db, category, id);
+  await assertCategoryCanMoveUnderParent(db, id, category);
+
   if (existing.type !== category.type) {
     const usageCount = await getCategoryUsageCount(db, id);
+    const subcategoryCount = await getSubcategoryCount(db, id);
 
-    if (usageCount > 0) {
-      throw conflict("Category type cannot be changed while used by expenses");
+    if (usageCount > 0 || subcategoryCount > 0) {
+      throw conflict("Category type cannot be changed while used or while it has subcategories");
     }
   }
 
@@ -275,10 +395,11 @@ export async function updateCategory(db, id, category) {
         type = ?,
         color = ?,
         icon = ?,
+        parent_id = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `)
-    .bind(category.name, category.type, category.color, category.icon, id)
+    .bind(category.name, category.type, category.color, category.icon, category.parentId, id)
     .run();
 
   return getCategoryById(db, id);
@@ -296,6 +417,11 @@ export async function deleteCategory(db, id) {
   }
 
   const usageCount = await getCategoryUsageCount(db, id);
+  const subcategoryCount = await getSubcategoryCount(db, id);
+
+  if (subcategoryCount > 0) {
+    throw conflict("Category has subcategories");
+  }
 
   if (usageCount > 0) {
     throw conflict("Category is used by transactions");

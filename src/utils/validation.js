@@ -172,11 +172,13 @@ export function validateSettingsForm(values) {
   };
 }
 
-export function validateCategoryForm(values) {
+export function validateCategoryForm(values, options = {}) {
+  const categories = options.categories || [];
   const errors = {};
   const name = values.name?.trim() || "";
   const color = values.color?.trim() || "";
   const icon = values.icon?.trim() || "";
+  const parentId = values.parentId || "";
 
   if (!name) {
     errors.name = "Category name is required.";
@@ -186,6 +188,18 @@ export function validateCategoryForm(values) {
 
   if (!CATEGORY_TYPES.includes(values.type)) {
     errors.type = "Choose expense or income.";
+  }
+
+  if (parentId) {
+    const parent = findById(categories, parentId);
+
+    if (!parent) {
+      errors.parentId = "Choose a valid parent category.";
+    } else if (parent.parentId) {
+      errors.parentId = "Choose a top-level parent category.";
+    } else if (parent.type !== values.type) {
+      errors.parentId = "Parent category type must match.";
+    }
   }
 
   if (color && !HEX_COLOR_PATTERN.test(color)) {

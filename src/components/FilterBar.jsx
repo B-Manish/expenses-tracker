@@ -1,14 +1,11 @@
 import { RotateCcw, Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { formatCategoryLabel } from "../utils/categories.js";
 import { isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
 
 function categoryLabel(category, includeType) {
-  if (!includeType) {
-    return category.name;
-  }
-
-  return `${category.name} (${category.type === "INCOME" ? "Income" : "Expense"})`;
+  return formatCategoryLabel(category, { includeType });
 }
 
 function validateDateRange(draft) {

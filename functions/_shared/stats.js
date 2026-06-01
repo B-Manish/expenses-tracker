@@ -156,10 +156,12 @@ async function getActiveRecurringExpenses(db, userId) {
         re.amount_paise,
         re.category_id,
         c.name AS category_name,
+        pc.name AS category_parent_name,
         c.color AS category_color,
         re.billing_day
       FROM recurring_expenses re
       LEFT JOIN categories c ON c.id = re.category_id
+      LEFT JOIN categories pc ON pc.id = c.parent_id
       WHERE re.user_id = ?
         AND re.is_active = 1
         AND re.frequency = 'MONTHLY'
@@ -173,7 +175,9 @@ async function getActiveRecurringExpenses(db, userId) {
     title: row.title,
     amountPaise: toInteger(row.amount_paise),
     categoryId: row.category_id,
-    categoryName: row.category_name ?? "Uncategorized",
+    categoryName: row.category_parent_name
+      ? `${row.category_parent_name} / ${row.category_name}`
+      : row.category_name ?? "Uncategorized",
     categoryColor: row.category_color ?? DEFAULT_CATEGORY_COLOR,
     billingDay: toInteger(row.billing_day),
   }));
@@ -249,9 +253,11 @@ async function getBiggestExpense(db, range) {
         t.title,
         t.amount_paise,
         t.transaction_date,
-        c.name AS category_name
+        c.name AS category_name,
+        pc.name AS category_parent_name
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories pc ON pc.id = c.parent_id
       WHERE t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
       ORDER BY t.amount_paise DESC, t.transaction_date DESC, t.created_at DESC, t.id DESC
@@ -269,7 +275,9 @@ async function getBiggestExpense(db, range) {
     title: row.title,
     amountPaise: toInteger(row.amount_paise),
     transactionDate: row.transaction_date,
-    categoryName: row.category_name ?? null,
+    categoryName: row.category_parent_name
+      ? `${row.category_parent_name} / ${row.category_name}`
+      : row.category_name ?? null,
   };
 }
 
@@ -299,14 +307,19 @@ async function getMostUsedCategory(db, range) {
   const row = await db
     .prepare(`
       SELECT
-        COALESCE(c.name, 'Uncategorized') AS category,
+        CASE
+          WHEN c.id IS NULL THEN 'Uncategorized'
+          WHEN pc.name IS NOT NULL THEN pc.name || ' / ' || c.name
+          ELSE c.name
+        END AS category,
         c.color AS color,
         COUNT(*) AS count
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories pc ON pc.id = c.parent_id
       WHERE t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
-      GROUP BY c.id, c.name, c.color
+      GROUP BY c.id, c.name, pc.name, c.color
       ORDER BY count DESC, SUM(t.amount_paise) DESC, category ASC
       LIMIT 1
     `)
@@ -353,14 +366,19 @@ async function getCategoryBreakdown(db, range) {
   const rows = await db
     .prepare(`
       SELECT
-        COALESCE(c.name, 'Uncategorized') AS category,
+        CASE
+          WHEN c.id IS NULL THEN 'Uncategorized'
+          WHEN pc.name IS NOT NULL THEN pc.name || ' / ' || c.name
+          ELSE c.name
+        END AS category,
         c.color AS color,
         COALESCE(SUM(t.amount_paise), 0) AS amount_paise
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories pc ON pc.id = c.parent_id
       WHERE t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
-      GROUP BY c.id, c.name, c.color
+      GROUP BY c.id, c.name, pc.name, c.color
       ORDER BY amount_paise DESC, category ASC
     `)
     .bind(range.from, range.to)
@@ -488,7 +506,9 @@ function mapRecentTransaction(row) {
     title: row.title,
     amountPaise: toInteger(row.amount_paise),
     categoryId: row.category_id ?? null,
-    categoryName: row.category_name ?? null,
+    categoryName: row.category_parent_name
+      ? `${row.category_parent_name} / ${row.category_name}`
+      : row.category_name ?? null,
     categoryColor: row.category_color ?? null,
     paymentMethodId: row.payment_method_id ?? null,
     paymentMethodName: row.payment_method_name ?? null,
@@ -510,6 +530,7 @@ async function getRecentTransactions(db) {
         t.amount_paise,
         t.category_id,
         c.name AS category_name,
+        pc.name AS category_parent_name,
         c.color AS category_color,
         t.payment_method_id,
         pm.name AS payment_method_name,
@@ -520,6 +541,7 @@ async function getRecentTransactions(db) {
         t.updated_at
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories pc ON pc.id = c.parent_id
       LEFT JOIN payment_methods pm ON pm.id = t.payment_method_id
       ORDER BY t.transaction_date DESC, t.created_at DESC, t.id DESC
       LIMIT ?

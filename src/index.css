@@ -672,6 +672,26 @@ h2 {
   list-style: none;
 }
 
+.category-group,
+.subcategory-list {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.subcategory-list {
+  margin-left: 26px;
+  padding-left: 16px;
+  border-left: 2px solid var(--border);
+}
+
+.subcategory-row {
+  min-height: 54px;
+  background: var(--surface-muted);
+}
+
 .list-row {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
@@ -1661,6 +1681,11 @@ h2 {
   .transaction-row,
   .recurring-row {
     grid-template-columns: 40px minmax(0, 1fr);
+  }
+
+  .subcategory-list {
+    margin-left: 10px;
+    padding-left: 10px;
   }
 
   .list-row .row-actions {

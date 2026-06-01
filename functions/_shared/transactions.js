@@ -32,6 +32,8 @@ const SELECT_TRANSACTION_SQL = `
     c.type AS category_type,
     c.color AS category_color,
     c.icon AS category_icon,
+    c.parent_id AS category_parent_id,
+    pc.name AS category_parent_name,
     t.payment_method_id,
     pm.name AS payment_method_name,
     t.transaction_date,
@@ -41,6 +43,7 @@ const SELECT_TRANSACTION_SQL = `
     t.updated_at
   FROM transactions t
   LEFT JOIN categories c ON c.id = t.category_id
+  LEFT JOIN categories pc ON pc.id = c.parent_id
   LEFT JOIN payment_methods pm ON pm.id = t.payment_method_id
 `;
 
@@ -303,7 +306,9 @@ function mapTransactionRow(row) {
     title: row.title,
     amountPaise: row.amount_paise,
     categoryId: row.category_id ?? null,
-    categoryName: row.category_name ?? null,
+    categoryName: row.category_parent_name
+      ? `${row.category_parent_name} / ${row.category_name}`
+      : row.category_name ?? null,
     category: row.category_id
       ? {
           id: row.category_id,
@@ -311,6 +316,8 @@ function mapTransactionRow(row) {
           type: row.category_type,
           color: row.category_color,
           icon: row.category_icon,
+          parentId: row.category_parent_id ?? null,
+          parentName: row.category_parent_name ?? null,
         }
       : null,
     paymentMethodId: row.payment_method_id ?? null,
@@ -339,8 +346,12 @@ function buildTransactionFilters(query) {
   }
 
   if (query.categoryId !== null) {
-    conditions.push("t.category_id = ?");
-    bindings.push(query.categoryId);
+    conditions.push(`
+      t.category_id IN (
+        SELECT id FROM categories WHERE id = ? OR parent_id = ?
+      )
+    `);
+    bindings.push(query.categoryId, query.categoryId);
   }
 
   if (query.paymentMethodId !== null) {

@@ -1,5 +1,6 @@
 import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
+import { formatCategoryLabel } from "../utils/categories.js";
 import { paiseToRupeesInputValue } from "../utils/currency.js";
 import { getTodayInKolkata } from "../utils/dateUtils.js";
 import { getFirstValidationError, validateTransactionForm } from "../utils/validation.js";
@@ -180,7 +181,7 @@ export default function ExpenseForm({
             <option value="">Uncategorized</option>
             {filteredCategories.map((category) => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {formatCategoryLabel(category)}
               </option>
             ))}
           </select>
