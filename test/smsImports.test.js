@@ -8,6 +8,7 @@ import {
   parseSmsIngestPayload,
 } from "../functions/_shared/smsImports.js";
 import {
+  deleteTransaction,
   listTransactions,
   validateTransactionQuery,
 } from "../functions/_shared/transactions.js";
@@ -176,6 +177,56 @@ class RecordingTransactionDb {
   }
 }
 
+class DeleteTransactionDb {
+  constructor(smsImportId) {
+    this.deletedSmsImportIds = [];
+    this.transaction = {
+      id: 1,
+      type: "EXPENSE",
+      title: "Imported purchase",
+      amount_paise: 1000,
+      category_id: null,
+      payment_method_id: null,
+      transaction_date: "2026-06-29",
+      transaction_time: "12:00",
+      merchant: null,
+      notes: null,
+      source: smsImportId === null ? "MANUAL" : "SMS",
+      sms_import_id: smsImportId,
+      created_at: "2026-06-29 12:00:00",
+      updated_at: "2026-06-29 12:00:00",
+    };
+  }
+
+  prepare(sql) {
+    const db = this;
+
+    return {
+      values: [],
+      bind(...values) {
+        this.values = values;
+        return this;
+      },
+      async first() {
+        return sql.includes("FROM transactions") ? db.transaction : null;
+      },
+      async run() {
+        if (sql.includes("DELETE FROM transactions")) {
+          db.transaction = null;
+          return { meta: { changes: 1 } };
+        }
+
+        if (sql.includes("DELETE FROM sms_imports")) {
+          db.deletedSmsImportIds.push(this.values[0]);
+          return { meta: { changes: 1 } };
+        }
+
+        throw new Error(`Unexpected delete test query: ${sql}`);
+      },
+    };
+  }
+}
+
 function smsRequest(body, token = TOKEN) {
   return new Request("https://tracker.example/api/sms-imports/ingest", {
     method: "POST",
@@ -293,6 +344,28 @@ test("transaction listing applies source filters in database queries", async () 
       assert.equal(statement.bindings[0], source);
     }
   }
+});
+
+test("deleting an SMS transaction also deletes its import and raw message row", async () => {
+  const db = new DeleteTransactionDb(42);
+  const result = await deleteTransaction(db, 1);
+
+  assert.deepEqual(result, {
+    deleted: true,
+    smsImportDeleted: true,
+  });
+  assert.deepEqual(db.deletedSmsImportIds, [42]);
+});
+
+test("deleting a manual transaction does not delete an SMS import", async () => {
+  const db = new DeleteTransactionDb(null);
+  const result = await deleteTransaction(db, 1);
+
+  assert.deepEqual(result, {
+    deleted: true,
+    smsImportDeleted: false,
+  });
+  assert.deepEqual(db.deletedSmsImportIds, []);
 });
 
 test("ingestion validation preserves the original sender and complete message", () => {

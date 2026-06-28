@@ -75,6 +75,9 @@ merchant can be identified, the title is `SMS transaction from <sender>`.
 Transactions can be filtered by source (`MANUAL` or `SMS`) on the transactions
 page.
 
+Deleting an SMS-captured transaction also permanently deletes its linked
+`sms_imports` audit row and retained raw message.
+
 Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
 
 ```bash

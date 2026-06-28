@@ -582,7 +582,15 @@ export async function deleteTransaction(db, id) {
 
   await db.prepare("DELETE FROM transactions WHERE id = ?").bind(id).run();
 
+  if (existing.smsImportId !== null) {
+    await db
+      .prepare("DELETE FROM sms_imports WHERE id = ?")
+      .bind(existing.smsImportId)
+      .run();
+  }
+
   return {
     deleted: true,
+    smsImportDeleted: existing.smsImportId !== null,
   };
 }
