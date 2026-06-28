@@ -133,7 +133,7 @@ export default function FilterBar({
         </label>
 
         <label className="form-field">
-          <span>Source</span>
+          <span>Transaction source (Manual / SMS)</span>
           <SelectControl
             disabled={isLoading}
             onChange={(value) => updateDraft("source", value)}

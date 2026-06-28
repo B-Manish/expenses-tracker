@@ -7,7 +7,10 @@ import {
   parseBankSms,
   parseSmsIngestPayload,
 } from "../functions/_shared/smsImports.js";
-import { validateTransactionQuery } from "../functions/_shared/transactions.js";
+import {
+  listTransactions,
+  validateTransactionQuery,
+} from "../functions/_shared/transactions.js";
 
 const TOKEN = "test-sms-ingest-token-with-at-least-32-characters";
 
@@ -145,6 +148,34 @@ class MemorySmsDb {
   }
 }
 
+class RecordingTransactionDb {
+  constructor() {
+    this.statements = [];
+  }
+
+  prepare(sql) {
+    const statement = {
+      bindings: [],
+      sql,
+    };
+
+    this.statements.push(statement);
+
+    return {
+      bind(...values) {
+        statement.bindings = values;
+        return this;
+      },
+      async first() {
+        return { total: 0 };
+      },
+      async all() {
+        return { results: [] };
+      },
+    };
+  }
+}
+
 function smsRequest(body, token = TOKEN) {
   return new Request("https://tracker.example/api/sms-imports/ingest", {
     method: "POST",
@@ -244,6 +275,24 @@ test("transaction queries accept manual and SMS source filters", () => {
     validateTransactionQuery(new URLSearchParams({ source: "UNKNOWN" })).ok,
     false,
   );
+});
+
+test("transaction listing applies source filters in database queries", async () => {
+  for (const source of ["MANUAL", "SMS"]) {
+    const validation = validateTransactionQuery(
+      new URLSearchParams({ source }),
+    );
+    const db = new RecordingTransactionDb();
+
+    assert.equal(validation.ok, true);
+    await listTransactions(db, validation.data);
+    assert.equal(db.statements.length, 2);
+
+    for (const statement of db.statements) {
+      assert.match(statement.sql, /WHERE t\.source = \?/);
+      assert.equal(statement.bindings[0], source);
+    }
+  }
 });
 
 test("ingestion validation preserves the original sender and complete message", () => {
