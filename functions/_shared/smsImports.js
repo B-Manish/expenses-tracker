@@ -344,6 +344,76 @@ function normalizeEnvironmentIdentifier(value, fallback) {
   return value.trim();
 }
 
+function createSmsTransactionTitle(smsImport) {
+  const merchant = smsImport.merchant?.trim();
+
+  if (merchant) {
+    return merchant.slice(0, 120);
+  }
+
+  return `SMS transaction from ${smsImport.sender}`.slice(0, 120);
+}
+
+function getSmsPaymentMethodName(paymentRail) {
+  if (paymentRail === "UPI") {
+    return "UPI";
+  }
+
+  if (["IMPS", "NEFT", "RTGS", "NACH", "ACH", "ECS"].includes(paymentRail)) {
+    return "Net Banking";
+  }
+
+  return null;
+}
+
+async function createTransactionFromSmsImport(db, smsImport) {
+  const categoryName =
+    smsImport.suggested_type === "EXPENSE" ? "Other Expense" : "Other Income";
+
+  await db
+    .prepare(`
+      INSERT OR IGNORE INTO transactions (
+        type,
+        title,
+        amount_paise,
+        category_id,
+        payment_method_id,
+        transaction_date,
+        transaction_time,
+        merchant,
+        notes,
+        source,
+        sms_import_id
+      )
+      VALUES (
+        ?,
+        ?,
+        ?,
+        (SELECT id FROM categories WHERE name = ? AND type = ? LIMIT 1),
+        (SELECT id FROM payment_methods WHERE name = ? LIMIT 1),
+        ?,
+        ?,
+        ?,
+        NULL,
+        'SMS',
+        ?
+      )
+    `)
+    .bind(
+      smsImport.suggested_type,
+      createSmsTransactionTitle(smsImport),
+      smsImport.amount_paise,
+      categoryName,
+      smsImport.suggested_type,
+      getSmsPaymentMethodName(smsImport.payment_rail),
+      smsImport.transaction_date,
+      smsImport.transaction_time,
+      smsImport.merchant,
+      smsImport.id,
+    )
+    .run();
+}
+
 export async function ingestSmsImport(db, env, input, token, options = {}) {
   const parsed = parseBankSms(
     {
@@ -413,6 +483,8 @@ export async function ingestSmsImport(db, env, input, token, options = {}) {
   if (!row) {
     throw internalServerError("SMS import could not be stored");
   }
+
+  await createTransactionFromSmsImport(db, row);
 
   return {
     accepted: true,

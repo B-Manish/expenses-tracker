@@ -22,6 +22,16 @@ function TypeBadge({ type }) {
   );
 }
 
+function SourceBadge({ source }) {
+  const isSms = source === "SMS";
+
+  return (
+    <Badge className={isSms ? "source-badge sms" : "source-badge manual"} variant="secondary">
+      {isSms ? "SMS captured" : "Manual"}
+    </Badge>
+  );
+}
+
 function CategoryLabel({ transaction }) {
   return (
     <CategoryBadge
@@ -69,6 +79,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
             <TableRow>
               <TableHead scope="col">Transaction</TableHead>
               <TableHead scope="col">Type</TableHead>
+              <TableHead scope="col">Source</TableHead>
               <TableHead scope="col">Category</TableHead>
               <TableHead scope="col">Payment</TableHead>
               <TableHead scope="col">Date & time</TableHead>
@@ -86,6 +97,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
                   </div>
                 </TableCell>
                 <TableCell><TypeBadge type={transaction.type} /></TableCell>
+                <TableCell><SourceBadge source={transaction.source} /></TableCell>
                 <TableCell><CategoryLabel transaction={transaction} /></TableCell>
                 <TableCell>{transaction.paymentMethodName || "Not set"}</TableCell>
                 <TableCell>{formatDisplayDateTime(transaction.transactionDate, transaction.transactionTime)}</TableCell>
@@ -121,6 +133,10 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
               <div>
                 <dt>Category</dt>
                 <dd><CategoryLabel transaction={transaction} /></dd>
+              </div>
+              <div>
+                <dt>Source</dt>
+                <dd><SourceBadge source={transaction.source} /></dd>
               </div>
               <div>
                 <dt>Payment</dt>

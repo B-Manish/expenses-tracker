@@ -50,6 +50,11 @@ export default function FilterBar({
     { label: "Expense", value: "EXPENSE" },
     { label: "Income", value: "INCOME" },
   ];
+  const sourceOptions = [
+    { label: "All sources", value: "ALL" },
+    { label: "Manually added", value: "MANUAL" },
+    { label: "Captured from SMS", value: "SMS" },
+  ];
   const categoryOptions = useMemo(() => [
     { label: "All categories", value: "" },
     ...visibleCategories.map((category) => ({
@@ -124,6 +129,16 @@ export default function FilterBar({
             onChange={(value) => updateDraft("type", value)}
             options={typeOptions}
             value={draft.type}
+          />
+        </label>
+
+        <label className="form-field">
+          <span>Source</span>
+          <SelectControl
+            disabled={isLoading}
+            onChange={(value) => updateDraft("source", value)}
+            options={sourceOptions}
+            value={draft.source}
           />
         </label>
 

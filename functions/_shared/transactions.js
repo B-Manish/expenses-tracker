@@ -12,6 +12,8 @@ import {
 
 const TRANSACTION_TYPES = ["EXPENSE", "INCOME"];
 const TRANSACTION_FILTER_TYPES = ["ALL", ...TRANSACTION_TYPES];
+const TRANSACTION_SOURCES = ["MANUAL", "SMS"];
+const TRANSACTION_FILTER_SOURCES = ["ALL", ...TRANSACTION_SOURCES];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DEFAULT_SORT = "transaction_date_desc";
 const SORT_CLAUSES = Object.freeze({
@@ -41,6 +43,8 @@ const SELECT_TRANSACTION_SQL = `
     t.transaction_time,
     t.merchant,
     t.notes,
+    t.source,
+    t.sms_import_id,
     t.created_at,
     t.updated_at
   FROM transactions t
@@ -133,6 +137,7 @@ function normalizeQueryParams(input) {
     from: value.from,
     to: value.to,
     search: value.search,
+    source: value.source,
     limit: value.limit,
     offset: value.offset,
     sort: value.sort,
@@ -282,6 +287,10 @@ const transactionQuerySchema = z
                 .optional(),
             )
             .transform((value) => value ?? null),
+          source: z.preprocess(
+            emptyToUndefined,
+            enumSchema(TRANSACTION_FILTER_SOURCES, "Source").default("ALL"),
+          ),
           sort: z
             .preprocess(
               emptyToUndefined,
@@ -337,6 +346,8 @@ function mapTransactionRow(row) {
     transactionTime: row.transaction_time,
     merchant: row.merchant,
     notes: row.notes,
+    source: row.source ?? "MANUAL",
+    smsImportId: row.sms_import_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -349,6 +360,11 @@ function buildTransactionFilters(query) {
   if (query.type !== "ALL") {
     conditions.push("t.type = ?");
     bindings.push(query.type);
+  }
+
+  if (query.source !== "ALL") {
+    conditions.push("t.source = ?");
+    bindings.push(query.source);
   }
 
   if (query.categoryId !== null) {

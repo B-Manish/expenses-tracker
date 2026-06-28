@@ -507,7 +507,7 @@ function mapRecentTransaction(row) {
     id: row.id,
     type: row.type,
     title: row.title,
-    amountPaise: toInteger(row.amount_paise),
+    amountPaise: row.amount_paise === null ? null : toInteger(row.amount_paise),
     categoryId: row.category_id ?? null,
     categoryName: row.category_parent_name
       ? `${row.category_parent_name} / ${row.category_name}`

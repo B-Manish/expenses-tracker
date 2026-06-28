@@ -7,12 +7,14 @@ import {
   parseBankSms,
   parseSmsIngestPayload,
 } from "../functions/_shared/smsImports.js";
+import { validateTransactionQuery } from "../functions/_shared/transactions.js";
 
 const TOKEN = "test-sms-ingest-token-with-at-least-32-characters";
 
 class MemorySmsDb {
   constructor() {
     this.rows = [];
+    this.transactions = [];
   }
 
   prepare(sql) {
@@ -25,8 +27,50 @@ class MemorySmsDb {
         return this;
       },
       async run() {
+        if (sql.includes("INSERT OR IGNORE INTO transactions")) {
+          const [
+            type,
+            title,
+            amountPaise,
+            categoryName,
+            categoryType,
+            paymentMethodName,
+            transactionDate,
+            transactionTime,
+            merchant,
+            smsImportId,
+          ] = this.values;
+          const existing = db.transactions.find(
+            (transaction) => transaction.sms_import_id === smsImportId,
+          );
+
+          if (existing) {
+            return { meta: { changes: 0 } };
+          }
+
+          const id = db.transactions.length + 1;
+
+          db.transactions.push({
+            id,
+            type,
+            title,
+            amount_paise: amountPaise,
+            category_name: categoryName,
+            category_type: categoryType,
+            payment_method_name: paymentMethodName,
+            transaction_date: transactionDate,
+            transaction_time: transactionTime,
+            merchant,
+            notes: null,
+            source: "SMS",
+            sms_import_id: smsImportId,
+          });
+
+          return { meta: { changes: 1, last_row_id: id } };
+        }
+
         if (!sql.includes("INSERT OR IGNORE INTO sms_imports")) {
-          throw new Error("Unexpected test query");
+          throw new Error(`Unexpected test query: ${sql}`);
         }
 
         const [
@@ -188,6 +232,20 @@ test("matches only complete debit and credit transaction keywords", () => {
   assert.equal(hasTransactionKeyword("Your card was accredited."), false);
 });
 
+test("transaction queries accept manual and SMS source filters", () => {
+  for (const source of ["ALL", "MANUAL", "SMS"]) {
+    const result = validateTransactionQuery(new URLSearchParams({ source }));
+
+    assert.equal(result.ok, true);
+    assert.equal(result.data.source, source);
+  }
+
+  assert.equal(
+    validateTransactionQuery(new URLSearchParams({ source: "UNKNOWN" })).ok,
+    false,
+  );
+});
+
 test("ingestion validation preserves the original sender and complete message", () => {
   const input = {
     sender: "  HdfcBk  ",
@@ -239,6 +297,11 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
   assert.equal(db.rows.length, 1);
   assert.equal(Object.hasOwn(db.rows[0], "message"), false);
   assert.equal(db.rows[0].raw_message, body.message);
+  assert.equal(db.transactions.length, 1);
+  assert.equal(db.transactions[0].title, "SWIGGY");
+  assert.equal(db.transactions[0].merchant, "SWIGGY");
+  assert.equal(db.transactions[0].source, "SMS");
+  assert.equal(db.transactions[0].sms_import_id, 1);
 
   const replayResponse = await handleSmsIngest({
     request: smsRequest(body),
@@ -250,6 +313,7 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
   assert.equal(replay.data.duplicate, true);
   assert.equal(replay.data.import.id, 1);
   assert.equal(db.rows.length, 1);
+  assert.equal(db.transactions.length, 1);
 });
 
 test("endpoint safely skips messages without a transaction keyword", async () => {
@@ -289,6 +353,8 @@ test("endpoint accepts keyword messages without a supported INR amount", async (
   assert.equal(body.data.accepted, true);
   assert.equal(body.data.import.amountPaise, null);
   assert.equal(db.rows[0].amount_paise, null);
+  assert.equal(db.transactions[0].amount_paise, null);
+  assert.equal(db.transactions[0].title, "SMS transaction from BANK");
 });
 
 test("endpoint rejects invalid bearer tokens before reading a valid payload", async () => {

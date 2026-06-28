@@ -55,10 +55,11 @@ SMS_INGEST_TOKEN=replace-with-a-long-random-device-token
 ```
 
 The Shortcut sends JSON to `POST /api/sms-imports/ingest` with this token in
-the `Authorization: Bearer <token>` header. Accepted messages are parsed into
-pending rows in `sms_imports`; the complete, unedited SMS body is retained in
-the `raw_message` column. The request contains only `sender` and `message`; the
-server records its own arrival time.
+the `Authorization: Bearer <token>` header. Accepted messages create an audit
+row in `sms_imports` and an editable transaction with source `SMS`; the
+complete, unedited SMS body is retained in the `raw_message` column. The
+request contains only `sender` and `message`; the server records its own
+arrival time.
 
 Configure the Shortcut to call the endpoint only when the original SMS body
 contains `debit`, `debited`, `credit`, or `credited`. Pass the message sender
@@ -68,6 +69,11 @@ for the filter and request details. As a defensive fallback, the endpoint
 returns a successful `skipped` result if a non-transaction message reaches it.
 Once a required keyword is present, a recognizable INR amount is optional; an
 unrecognized or absent amount is stored as `null` for later review.
+
+SMS transaction titles use the parsed merchant/source when available. If no
+merchant can be identified, the title is `SMS transaction from <sender>`.
+Transactions can be filtered by source (`MANUAL` or `SMS`) on the transactions
+page.
 
 Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
 
@@ -165,7 +171,7 @@ After deployment, verify:
 ## MVP Limitations
 
 - CSV export, bulk delete-all-data, and bank connection are placeholders only.
-- SMS imports are stored for later review; the review/confirm UI is not yet
-  implemented.
+- SMS transactions are created automatically; a dedicated raw-message review
+  screen is not yet implemented.
 - Live bank sync, direct SBI API calls, Account Aggregator integration, OTP collection, and bank credential collection are not implemented.
 - The app is intended for personal use on Cloudflare Pages, Pages Functions, and D1 free-tier infrastructure.

@@ -21,15 +21,17 @@ const DEFAULT_FILTERS = Object.freeze({
   offset: "0",
   paymentMethodId: "",
   search: "",
+  source: "ALL",
   sort: "transaction_date_desc",
   to: "",
   type: "ALL",
 });
 
 const VALID_TYPES = new Set(["ALL", "EXPENSE", "INCOME"]);
+const VALID_SOURCES = new Set(["ALL", "MANUAL", "SMS"]);
 const VALID_SORTS = new Set(SORT_OPTIONS.map((option) => option.value));
 const VALID_LIMITS = new Set(LIMIT_OPTIONS.map((option) => option.value));
-const FILTER_COUNT_KEYS = ["categoryId", "from", "paymentMethodId", "search", "to", "type"];
+const FILTER_COUNT_KEYS = ["categoryId", "from", "paymentMethodId", "search", "source", "to", "type"];
 
 function isPositiveId(value) {
   return /^\d+$/.test(value || "") && Number(value) > 0;
@@ -62,6 +64,9 @@ function readFilters(searchParams) {
     offset: normalizeOffset(searchParams.get("offset") || DEFAULT_FILTERS.offset),
     paymentMethodId: isPositiveId(paymentMethodId) ? paymentMethodId : "",
     search: (searchParams.get("search") || "").slice(0, 120),
+    source: VALID_SOURCES.has(searchParams.get("source"))
+      ? searchParams.get("source")
+      : DEFAULT_FILTERS.source,
     sort: VALID_SORTS.has(sort) ? sort : DEFAULT_FILTERS.sort,
     to: hasValidRange ? validTo : "",
     type: VALID_TYPES.has(type) ? type : DEFAULT_FILTERS.type,
@@ -90,6 +95,7 @@ function toApiQuery(filters) {
     offset: filters.offset,
     paymentMethodId: filters.paymentMethodId,
     search: filters.search,
+    source: filters.source,
     sort: filters.sort,
     to: filters.to,
     type: filters.type,
