@@ -159,13 +159,13 @@ function findAmountPaise(message) {
     /(?:₹|(?:INR|RS)\.?)\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i.exec(message);
 
   if (!match) {
-    throw badRequest("SMS does not contain a supported INR amount");
+    return null;
   }
 
   const result = parseRupeesToPaise(match[1].replaceAll(",", ""));
 
   if (!result.ok) {
-    throw badRequest(`SMS amount is invalid: ${result.message}`);
+    return null;
   }
 
   return result.paise;

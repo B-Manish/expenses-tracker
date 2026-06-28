@@ -161,6 +161,17 @@ test("rejects messages that do not describe a supported transaction", () => {
   );
 });
 
+test("accepts a transaction keyword when no supported INR amount is present", () => {
+  const parsed = parseBankSms({
+    sender: "BANK",
+    message: "Your account has been debited. Check the banking app for details.",
+  });
+
+  assert.equal(parsed.direction, "DEBIT");
+  assert.equal(parsed.suggestedType, "EXPENSE");
+  assert.equal(parsed.amountPaise, null);
+});
+
 test("matches only complete debit and credit transaction keywords", () => {
   for (const message of [
     "Rs.10 debit from your account",
@@ -257,6 +268,24 @@ test("endpoint safely skips messages without a transaction keyword", async () =>
       reason: "no_transaction_keyword",
     },
   });
+});
+
+test("endpoint accepts keyword messages without a supported INR amount", async () => {
+  const db = new MemorySmsDb();
+  const response = await handleSmsIngest({
+    request: smsRequest({
+      sender: "BANK",
+      message: "Your account has been credited. Open the app for details.",
+    }),
+    env: { DB: db, SMS_INGEST_TOKEN: TOKEN },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 202);
+  assert.equal(body.success, true);
+  assert.equal(body.data.accepted, true);
+  assert.equal(body.data.import.amountPaise, null);
+  assert.equal(db.rows[0].amount_paise, null);
 });
 
 test("endpoint rejects invalid bearer tokens before reading a valid payload", async () => {
