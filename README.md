@@ -56,7 +56,8 @@ SMS_INGEST_TOKEN=replace-with-a-long-random-device-token
 
 The Shortcut sends JSON to `POST /api/sms-imports/ingest` with this token in
 the `Authorization: Bearer <token>` header. Accepted messages are parsed into
-pending rows in `sms_imports`; the raw SMS body is not retained.
+pending rows in `sms_imports`; the raw SMS body is not retained. The request
+contains only `sender` and `message`; the server records its own arrival time.
 
 Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
 

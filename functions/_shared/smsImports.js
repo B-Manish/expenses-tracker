@@ -13,9 +13,6 @@ export const SMS_PARSER_VERSION = "bank-sms-v1";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const OFFSET_TIMESTAMP_PATTERN =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
-
 const smsIngestSchema = z
   .object({
     sender: z
@@ -28,17 +25,6 @@ const smsIngestSchema = z
       .trim()
       .min(1, "Message is required")
       .max(4096, "Message must be 4096 characters or less"),
-    receivedAt: z
-      .string()
-      .trim()
-      .max(64, "Received time must be 64 characters or less")
-      .refine(
-        (value) =>
-          OFFSET_TIMESTAMP_PATTERN.test(value) &&
-          Number.isFinite(Date.parse(value)),
-        "Received time must be an ISO 8601 timestamp with an offset",
-      )
-      .optional(),
   })
   .strict();
 
@@ -354,7 +340,13 @@ function normalizeEnvironmentIdentifier(value, fallback) {
 }
 
 export async function ingestSmsImport(db, env, input, token, options = {}) {
-  const parsed = parseBankSms(input, options);
+  const parsed = parseBankSms(
+    {
+      sender: input.sender,
+      message: input.message,
+    },
+    options,
+  );
   const userId = normalizeEnvironmentIdentifier(
     env?.SMS_INGEST_USER_ID,
     DEFAULT_USER_ID,

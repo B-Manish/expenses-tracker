@@ -183,7 +183,6 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
     sender: "HDFCBK",
     message:
       "Rs.450.00 debited from A/c XX1234 via UPI to SWIGGY. Ref 123456789012.",
-    receivedAt: "2026-06-28T20:15:00+05:30",
   };
 
   const createdResponse = await handleSmsIngest({
@@ -229,4 +228,19 @@ test("endpoint rejects invalid bearer tokens before reading a valid payload", as
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("www-authenticate"), "Bearer");
   assert.equal(body.success, false);
+});
+
+test("endpoint rejects client-supplied timestamps", async () => {
+  const response = await handleSmsIngest({
+    request: smsRequest({
+      sender: "HDFCBK",
+      message: "Rs.10 debited from account XX1234.",
+      receivedAt: "2026-06-28T20:15:00+05:30",
+    }),
+    env: { DB: new MemorySmsDb(), SMS_INGEST_TOKEN: TOKEN },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(body.error.message, /Unrecognized key/);
 });
