@@ -5,7 +5,13 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'node_modules', '.wrangler', '.chrome-*']),
+  globalIgnores([
+    'dist',
+    'node_modules',
+    '.wrangler',
+    '**/.wrangler/**',
+    '.chrome-*',
+  ]),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

@@ -47,6 +47,17 @@ npx wrangler pages dev dist --d1 DB=<DATABASE_ID>
 
 For local auth testing, set `APP_PASSWORD` and `SESSION_SECRET` in `.dev.vars`. This file is ignored by git.
 
+To accept bank transaction messages from an iPhone Shortcuts automation, also
+set a dedicated random token of at least 32 characters:
+
+```bash
+SMS_INGEST_TOKEN=replace-with-a-long-random-device-token
+```
+
+The Shortcut sends JSON to `POST /api/sms-imports/ingest` with this token in
+the `Authorization: Bearer <token>` header. Accepted messages are parsed into
+pending rows in `sms_imports`; the raw SMS body is not retained.
+
 Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
 
 ```bash
@@ -108,6 +119,7 @@ npx wrangler d1 migrations apply expenses-tracker-db --remote
 - `RESEND_API_KEY`
 - `RESET_EMAIL_FROM`
 - `RESET_EMAIL_TO` optional; defaults to `batchumanish@gmail.com`
+- `SMS_INGEST_TOKEN`
 
 Do not put secret values in React source files, `wrangler.toml`, or committed documentation.
 
@@ -134,11 +146,15 @@ After deployment, verify:
 - Add, edit, and delete unused custom categories.
 - Add, edit, and delete unused custom payment methods.
 - Dashboard stats load and reflect D1 data.
+- An authenticated SMS ingestion request creates one pending import, and
+  replaying the same message reports it as a duplicate.
 - Mobile layout is usable.
 - Cloudflare Pages Functions logs do not show raw production errors.
 
 ## MVP Limitations
 
 - CSV export, bulk delete-all-data, and bank connection are placeholders only.
+- SMS imports are stored for later review; the review/confirm UI is not yet
+  implemented.
 - Live bank sync, direct SBI API calls, Account Aggregator integration, OTP collection, and bank credential collection are not implemented.
 - The app is intended for personal use on Cloudflare Pages, Pages Functions, and D1 free-tier infrastructure.
