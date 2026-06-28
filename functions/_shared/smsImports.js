@@ -371,6 +371,7 @@ export async function ingestSmsImport(db, env, input, token, options = {}) {
         user_id,
         device_id,
         sender,
+        raw_message,
         message_hash,
         direction,
         suggested_type,
@@ -385,12 +386,13 @@ export async function ingestSmsImport(db, env, input, token, options = {}) {
         payment_rail,
         parser_version
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
       userId,
       deviceId,
       parsed.sender,
+      input.message,
       messageHash,
       parsed.direction,
       parsed.suggestedType,

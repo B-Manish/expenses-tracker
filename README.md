@@ -56,8 +56,9 @@ SMS_INGEST_TOKEN=replace-with-a-long-random-device-token
 
 The Shortcut sends JSON to `POST /api/sms-imports/ingest` with this token in
 the `Authorization: Bearer <token>` header. Accepted messages are parsed into
-pending rows in `sms_imports`; the raw SMS body is not retained. The request
-contains only `sender` and `message`; the server records its own arrival time.
+pending rows in `sms_imports`; the complete, unedited SMS body is retained in
+the `raw_message` column. The request contains only `sender` and `message`; the
+server records its own arrival time.
 
 Configure the Shortcut to call the endpoint only when the original SMS body
 contains `debit`, `debited`, `credit`, or `credited`. Pass the message sender

@@ -33,6 +33,7 @@ class MemorySmsDb {
           userId,
           deviceId,
           sender,
+          rawMessage,
           messageHash,
           direction,
           suggestedType,
@@ -63,6 +64,7 @@ class MemorySmsDb {
           user_id: userId,
           device_id: deviceId,
           sender,
+          raw_message: rawMessage,
           message_hash: messageHash,
           direction,
           suggested_type: suggestedType,
@@ -110,7 +112,7 @@ function smsRequest(body, token = TOKEN) {
   });
 }
 
-test("parses a UPI debit SMS without retaining its raw body", () => {
+test("parses a UPI debit SMS", () => {
   const parsed = parseBankSms({
     sender: "HDFCBK",
     message:
@@ -219,7 +221,7 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
   const body = {
     sender: "HDFCBK",
     message:
-      "Rs.450.00 debited from A/c XX1234 via UPI to SWIGGY. Ref 123456789012.",
+      "  Rs.450.00 debited from A/c XX1234 via UPI to SWIGGY.\nRef 123456789012.  ",
   };
 
   const createdResponse = await handleSmsIngest({
@@ -236,6 +238,7 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
   assert.equal(created.data.import.id, 1);
   assert.equal(db.rows.length, 1);
   assert.equal(Object.hasOwn(db.rows[0], "message"), false);
+  assert.equal(db.rows[0].raw_message, body.message);
 
   const replayResponse = await handleSmsIngest({
     request: smsRequest(body),
