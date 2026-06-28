@@ -3,7 +3,9 @@ import test from "node:test";
 import { onRequest as handleSmsIngest } from "../functions/api/sms-imports/ingest.js";
 import {
   createSmsMessageHash,
+  hasTransactionKeyword,
   parseBankSms,
+  parseSmsIngestPayload,
 } from "../functions/_shared/smsImports.js";
 
 const TOKEN = "test-sms-ingest-token-with-at-least-32-characters";
@@ -159,6 +161,30 @@ test("rejects messages that do not describe a supported transaction", () => {
   );
 });
 
+test("matches only complete debit and credit transaction keywords", () => {
+  for (const message of [
+    "Rs.10 debit from your account",
+    "Rs.10 DEBITED from your account",
+    "Rs.10 credit to your account",
+    "Rs.10 Credited to your account",
+  ]) {
+    assert.equal(hasTransactionKeyword(message), true);
+  }
+
+  assert.equal(hasTransactionKeyword("Your monthly statement is ready."), false);
+  assert.equal(hasTransactionKeyword("Your card was accredited."), false);
+});
+
+test("ingestion validation preserves the original sender and complete message", () => {
+  const input = {
+    sender: "  HdfcBk  ",
+    message:
+      "  Rs.450.00 debited from A/c XX1234.\nAvailable balance: Rs.1,000.00.  ",
+  };
+
+  assert.deepEqual(parseSmsIngestPayload(input), input);
+});
+
 test("message hashes are stable but keyed by the ingestion token", async () => {
   const first = await createSmsMessageHash(TOKEN, "HDFCBK", "Rs.10 debited");
   const repeated = await createSmsMessageHash(
@@ -210,6 +236,27 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
   assert.equal(replay.data.duplicate, true);
   assert.equal(replay.data.import.id, 1);
   assert.equal(db.rows.length, 1);
+});
+
+test("endpoint safely skips messages without a transaction keyword", async () => {
+  const response = await handleSmsIngest({
+    request: smsRequest({
+      sender: "BANK",
+      message: "Your monthly statement is now available.",
+    }),
+    env: { SMS_INGEST_TOKEN: TOKEN },
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body, {
+    success: true,
+    data: {
+      accepted: false,
+      skipped: true,
+      reason: "no_transaction_keyword",
+    },
+  });
 });
 
 test("endpoint rejects invalid bearer tokens before reading a valid payload", async () => {

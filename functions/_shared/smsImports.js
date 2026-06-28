@@ -13,18 +13,17 @@ export const SMS_PARSER_VERSION = "bank-sms-v1";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+const TRANSACTION_KEYWORD_PATTERN = /\b(?:debit(?:ed)?|credit(?:ed)?)\b/i;
 const smsIngestSchema = z
   .object({
     sender: z
       .string()
-      .trim()
-      .min(1, "Sender is required")
-      .max(64, "Sender must be 64 characters or less"),
+      .max(64, "Sender must be 64 characters or less")
+      .refine((value) => value.trim().length > 0, "Sender is required"),
     message: z
       .string()
-      .trim()
-      .min(1, "Message is required")
-      .max(4096, "Message must be 4096 characters or less"),
+      .max(4096, "Message must be 4096 characters or less")
+      .refine((value) => value.trim().length > 0, "Message is required"),
   })
   .strict();
 
@@ -125,6 +124,12 @@ export async function readSmsIngestJson(request) {
 
 export function parseSmsIngestPayload(input) {
   return parseValidated(smsIngestSchema, input);
+}
+
+export function hasTransactionKeyword(message) {
+  return (
+    typeof message === "string" && TRANSACTION_KEYWORD_PATTERN.test(message)
+  );
 }
 
 function normalizeWhitespace(value) {

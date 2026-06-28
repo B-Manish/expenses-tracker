@@ -59,6 +59,13 @@ the `Authorization: Bearer <token>` header. Accepted messages are parsed into
 pending rows in `sms_imports`; the raw SMS body is not retained. The request
 contains only `sender` and `message`; the server records its own arrival time.
 
+Configure the Shortcut to call the endpoint only when the original SMS body
+contains `debit`, `debited`, `credit`, or `credited`. Pass the message sender
+and the complete, unedited message body as variables; do not use sample text in
+the request. See [iPhone SMS automation setup](docs/IPHONE_SMS_AUTOMATION.md)
+for the filter and request details. As a defensive fallback, the endpoint
+returns a successful `skipped` result if a non-transaction message reaches it.
+
 Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
 
 ```bash
