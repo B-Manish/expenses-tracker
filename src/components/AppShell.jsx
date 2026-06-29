@@ -10,6 +10,7 @@ import {
   ReceiptText,
   Settings,
   Tags,
+  Target,
   WalletCards,
   X,
 } from "lucide-react";
@@ -39,6 +40,7 @@ const navItems = [
   { to: "/expenses", label: "Transactions", icon: ReceiptText },
   { to: "/expenses/new", label: "Add transaction", icon: PlusCircle },
   { to: "/recurring-expenses", label: "Recurring", icon: CalendarClock },
+  { to: "/budgets", label: "Budgets", icon: Target },
   { to: "/sms-imports", label: "SMS Inbox", icon: MessageSquareText },
   { to: "/categories", label: "Categories", icon: Tags },
   { to: "/payment-methods", label: "Payments", icon: CreditCard },

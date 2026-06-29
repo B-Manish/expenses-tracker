@@ -271,6 +271,36 @@ export function validateRecurringExpenseForm(values, options = {}) {
   };
 }
 
+export function validateBudgetForm(values, options = {}) {
+  const categories = options.categories || [];
+  const errors = {};
+
+  const amountResult = parseRupeesToPaiseInput(values.amount || "");
+
+  if (!amountResult.ok) {
+    errors.amount = amountResult.message;
+  }
+
+  const category = findById(categories, values.categoryId);
+
+  if (!values.categoryId) {
+    errors.categoryId = "Choose a category.";
+  } else if (!category) {
+    errors.categoryId = "Choose a valid category.";
+  } else if (category.type !== "EXPENSE") {
+    errors.categoryId = "Choose an expense category.";
+  }
+
+  if (values.period !== "MONTHLY") {
+    errors.period = "Only monthly budgets are supported.";
+  }
+
+  return {
+    errors,
+    isValid: Object.keys(errors).length === 0,
+  };
+}
+
 export function validatePaymentMethodForm(values) {
   const errors = {};
   const name = values.name?.trim() || "";

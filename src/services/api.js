@@ -143,6 +143,12 @@ export const api = {
   updateRecurringExpense: (id, payload) => jsonRequest(`/api/recurring-expenses/${id}`, "PUT", payload),
   deleteRecurringExpense: (id) => request(`/api/recurring-expenses/${id}`, { method: "DELETE" }),
 
+  getBudgets: () => request("/api/budgets"),
+  getBudget: (id) => request(`/api/budgets/${id}`),
+  createBudget: (payload) => jsonRequest("/api/budgets", "POST", payload),
+  updateBudget: (id, payload) => jsonRequest(`/api/budgets/${id}`, "PUT", payload),
+  deleteBudget: (id) => request(`/api/budgets/${id}`, { method: "DELETE" }),
+
   getCategories: (query) => request(withQuery("/api/categories", query)),
   createCategory: (payload) => jsonRequest("/api/categories", "POST", payload),
   updateCategory: (id, payload) => jsonRequest(`/api/categories/${id}`, "PUT", payload),

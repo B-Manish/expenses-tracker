@@ -657,6 +657,38 @@
     @apply bg-rose-500;
   }
 
+  .budget-fill.under {
+    @apply bg-emerald-500;
+  }
+
+  .budget-fill.near {
+    @apply bg-amber-500;
+  }
+
+  .budget-fill.over {
+    @apply bg-rose-500;
+  }
+
+  .budget-progress {
+    @apply grid gap-2;
+  }
+
+  .budget-progress-meta {
+    @apply flex items-center justify-between gap-3 text-sm font-medium text-muted-foreground;
+  }
+
+  .budget-row {
+    @apply grid gap-3;
+  }
+
+  .budget-row-main {
+    @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto];
+  }
+
+  .budget-row-status {
+    @apply hidden flex-col items-end gap-1 text-sm font-medium sm:flex;
+  }
+
   .net-summary {
     @apply border-t pt-4;
   }

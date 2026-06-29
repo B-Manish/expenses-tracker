@@ -4,6 +4,7 @@ import ErrorState from "./components/ErrorState.jsx";
 import Layout from "./components/Layout.jsx";
 import LoadingState from "./components/LoadingState.jsx";
 import AddExpense from "./pages/AddExpense.jsx";
+import Budgets from "./pages/Budgets.jsx";
 import Categories from "./pages/Categories.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import EditExpense from "./pages/EditExpense.jsx";
@@ -87,6 +88,7 @@ function AppRoutes() {
           <Route path="/expenses/new" element={<AddExpense />} />
           <Route path="/expenses/:id/edit" element={<EditExpense />} />
           <Route path="/recurring-expenses" element={<RecurringExpenses />} />
+          <Route path="/budgets" element={<Budgets />} />
           <Route path="/sms-imports" element={<SmsImports />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/payment-methods" element={<PaymentMethods />} />

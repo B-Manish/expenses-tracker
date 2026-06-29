@@ -256,6 +256,65 @@ function RecurringExpensesPreview({ items = [] }) {
   );
 }
 
+const BUDGET_STATUS_LABEL = {
+  under: "On track",
+  near: "Near limit",
+  over: "Over budget",
+};
+const BUDGET_STATUS_ORDER = { over: 0, near: 1, under: 2 };
+
+function BudgetsSummary({ data }) {
+  const items = data?.items || [];
+  const summary = data?.summary || null;
+
+  if (!items.length) {
+    return (
+      <EmptyState
+        title="No budgets yet"
+        message="Set monthly category budgets to track spending against limits."
+      />
+    );
+  }
+
+  const sorted = [...items]
+    .sort((first, second) => (
+      (BUDGET_STATUS_ORDER[first.status] ?? 3) - (BUDGET_STATUS_ORDER[second.status] ?? 3) ||
+      second.percentUsed - first.percentUsed
+    ))
+    .slice(0, 5);
+
+  return (
+    <div className="comparison-stack">
+      <div className="net-summary budget-summary-totals">
+        <span>
+          {formatCurrencyFromPaise(summary?.totalSpentPaise || 0)} of {formatCurrencyFromPaise(summary?.totalBudgetedPaise || 0)}
+        </span>
+        <strong className={toAmount(summary?.totalRemainingPaise) < 0 ? "expense-text" : "income-text"}>
+          {formatCurrencyFromPaise(summary?.totalRemainingPaise || 0)} left
+        </strong>
+      </div>
+      {sorted.map((budget) => (
+        <div className="budget-progress" key={budget.id}>
+          <div className="comparison-row">
+            <div>
+              <span>{budget.categoryName || "Uncategorized"}</span>
+              <strong className={budget.status === "over" ? "expense-text" : ""}>
+                {budget.percentUsed}% - {BUDGET_STATUS_LABEL[budget.status] || ""}
+              </strong>
+            </div>
+          </div>
+          <div className="comparison-track" aria-hidden="true">
+            <span
+              className={`comparison-fill budget-fill ${budget.status}`}
+              style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [range, setRange] = useState({
@@ -572,6 +631,20 @@ export default function Dashboard() {
       </div>
 
       <div className="content-grid two-column-grid">
+        <DashboardCard
+          title="Budgets"
+          titleId="budgets-summary-title"
+          description="Monthly category limits, over-budget and near-limit first."
+          actions={(
+            <Link className="text-link" to="/budgets">
+              Manage
+              <ArrowRight size={16} aria-hidden="true" />
+            </Link>
+          )}
+        >
+          <BudgetsSummary data={stats.budgets} />
+        </DashboardCard>
+
         <DashboardCard
           title="Recent transactions"
           titleId="recent-title"

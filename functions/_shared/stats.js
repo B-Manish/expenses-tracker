@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { listBudgets } from "./budgets.js";
 import {
   addDays,
   currentMonthRangeInKolkata,
@@ -634,6 +635,11 @@ export async function getDashboardStats(db, query, options = {}) {
     recurringExpenses,
   );
   const recentTransactions = await getRecentTransactions(db, userId);
+  const budgetData = await listBudgets(db, userId, { now });
+  const budgets = {
+    items: budgetData.items.filter((budget) => budget.isActive),
+    summary: budgetData.summary,
+  };
 
   return {
     todaySpentPaise,
@@ -661,5 +667,6 @@ export async function getDashboardStats(db, query, options = {}) {
       billingDay: expense.billingDay,
     })),
     recentTransactions,
+    budgets,
   };
 }
