@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { badRequest, notFound } from "./errors.js";
-import { MAX_AMOUNT_PAISE, parseRupeesToPaise } from "./money.js";
+import { MAX_AMOUNT_PAISE, paiseToRupeesString, parseRupeesToPaise } from "./money.js";
 import {
   dateSchema,
   enumSchema,
@@ -15,6 +15,7 @@ const TRANSACTION_FILTER_TYPES = ["ALL", ...TRANSACTION_TYPES];
 const TRANSACTION_SOURCES = ["MANUAL", "SMS"];
 const TRANSACTION_FILTER_SOURCES = ["ALL", ...TRANSACTION_SOURCES];
 const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const FILTER_AMOUNT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
 const DEFAULT_SORT = "transaction_date_desc";
 const SORT_CLAUSES = Object.freeze({
   transaction_date_desc:
@@ -22,7 +23,10 @@ const SORT_CLAUSES = Object.freeze({
   transaction_date_asc: "t.transaction_date ASC, t.transaction_time ASC, t.created_at ASC, t.id ASC",
   created_at_desc: "t.created_at DESC, t.id DESC",
   created_at_asc: "t.created_at ASC, t.id ASC",
+  amount_desc: "t.amount_paise DESC, t.id DESC",
+  amount_asc: "t.amount_paise ASC, t.id ASC",
 });
+export const TRANSACTION_SORTS = Object.freeze(Object.keys(SORT_CLAUSES));
 
 const SELECT_TRANSACTION_SQL = `
   SELECT
@@ -102,6 +106,110 @@ function optionalQueryIdSchema() {
     .transform((value) => value ?? null);
 }
 
+// Filter amounts are inclusive bounds in rupees; 0 means "no bound" and is
+// stored as null. Output is integer paise to match the money representation.
+function optionalAmountPaiseSchema(label) {
+  return z
+    .preprocess(emptyToUndefined, z.union([z.string(), z.number()]).optional())
+    .transform((value, context) => {
+      if (value === undefined) {
+        return null;
+      }
+
+      const normalized = (typeof value === "number" ? String(value) : value).trim();
+
+      if (!FILTER_AMOUNT_PATTERN.test(normalized)) {
+        context.addIssue({
+          code: "custom",
+          message: `${label} must be an amount with up to 2 decimal places`,
+        });
+
+        return z.NEVER;
+      }
+
+      const [rupees, paise = ""] = normalized.split(".");
+      const totalPaise = BigInt(rupees) * 100n + BigInt(paise.padEnd(2, "0") || "0");
+
+      if (totalPaise === 0n) {
+        return null;
+      }
+
+      if (totalPaise > BigInt(MAX_AMOUNT_PAISE)) {
+        context.addIssue({ code: "custom", message: `${label} is too large` });
+
+        return z.NEVER;
+      }
+
+      return Number(totalPaise);
+    });
+}
+
+function flagSchema() {
+  return z
+    .preprocess(emptyToUndefined, z.union([z.boolean(), z.string()]).optional())
+    .transform((value) => flagToBoolean(value));
+}
+
+// Single source of truth for the filter fields, shared by the list query
+// schema (with pagination) and the saved-view filter schema (without).
+function filterFieldShape() {
+  return {
+    type: z.preprocess(
+      emptyToUndefined,
+      enumSchema(TRANSACTION_FILTER_TYPES, "Type").default("ALL"),
+    ),
+    categoryId: optionalQueryIdSchema(),
+    uncategorized: flagSchema(),
+    paymentMethodId: optionalQueryIdSchema(),
+    from: z.preprocess(emptyToUndefined, dateSchema.optional()),
+    to: z.preprocess(emptyToUndefined, dateSchema.optional()),
+    search: z
+      .preprocess(
+        emptyToUndefined,
+        z.string().trim().max(120, "Search must be 120 characters or less").optional(),
+      )
+      .transform((value) => value ?? null),
+    source: z.preprocess(
+      emptyToUndefined,
+      enumSchema(TRANSACTION_FILTER_SOURCES, "Source").default("ALL"),
+    ),
+    minAmount: optionalAmountPaiseSchema("Minimum amount"),
+    maxAmount: optionalAmountPaiseSchema("Maximum amount"),
+    sort: z.preprocess(emptyToUndefined, z.enum(TRANSACTION_SORTS).default(DEFAULT_SORT)),
+  };
+}
+
+function refineFilters(value, context) {
+  if (value.from && value.to && value.from > value.to) {
+    context.addIssue({
+      code: "custom",
+      path: ["from"],
+      message: "From date must be before or equal to to date",
+    });
+  }
+
+  if (
+    value.minAmount !== null &&
+    value.maxAmount !== null &&
+    value.minAmount > value.maxAmount
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["minAmount"],
+      message: "Minimum amount must be less than or equal to maximum amount",
+    });
+  }
+}
+
+// minAmount/maxAmount are output as integer paise; rename for clarity downstream.
+function toQueryShape(value) {
+  return {
+    ...value,
+    minAmountPaise: value.minAmount,
+    maxAmountPaise: value.maxAmount,
+  };
+}
+
 function normalizeTransactionBody(value) {
   if (!isPlainObject(value)) {
     return {};
@@ -121,7 +229,7 @@ function normalizeTransactionBody(value) {
   };
 }
 
-function normalizeQueryParams(input) {
+function normalizeFilterParams(input) {
   const value = input instanceof URLSearchParams
     ? Object.fromEntries(input.entries())
     : input;
@@ -133,15 +241,32 @@ function normalizeQueryParams(input) {
   return {
     type: value.type,
     categoryId: value.categoryId ?? value.category_id,
+    uncategorized: value.uncategorized,
     paymentMethodId: value.paymentMethodId ?? value.payment_method_id,
     from: value.from,
     to: value.to,
     search: value.search,
     source: value.source,
-    limit: value.limit,
-    offset: value.offset,
+    minAmount: value.minAmount ?? value.min_amount,
+    maxAmount: value.maxAmount ?? value.max_amount,
     sort: value.sort,
   };
+}
+
+function normalizeQueryParams(input) {
+  const value = input instanceof URLSearchParams
+    ? Object.fromEntries(input.entries())
+    : input;
+
+  return {
+    ...normalizeFilterParams(value),
+    limit: isPlainObject(value) ? value.limit : undefined,
+    offset: isPlainObject(value) ? value.offset : undefined,
+  };
+}
+
+function flagToBoolean(value) {
+  return value === true || value === "true" || value === "1";
 }
 
 function parsePaiseInput(input) {
@@ -266,47 +391,16 @@ const transactionQuerySchema = z
   .preprocess(
     normalizeQueryParams,
     paginationSchema
-      .merge(
-        z.object({
-          type: z
-            .preprocess(
-              emptyToUndefined,
-              enumSchema(TRANSACTION_FILTER_TYPES, "Type").default("ALL"),
-            ),
-          categoryId: optionalQueryIdSchema(),
-          paymentMethodId: optionalQueryIdSchema(),
-          from: z.preprocess(emptyToUndefined, dateSchema.optional()),
-          to: z.preprocess(emptyToUndefined, dateSchema.optional()),
-          search: z
-            .preprocess(
-              emptyToUndefined,
-              z
-                .string()
-                .trim()
-                .max(120, "Search must be 120 characters or less")
-                .optional(),
-            )
-            .transform((value) => value ?? null),
-          source: z.preprocess(
-            emptyToUndefined,
-            enumSchema(TRANSACTION_FILTER_SOURCES, "Source").default("ALL"),
-          ),
-          sort: z
-            .preprocess(
-              emptyToUndefined,
-              z.enum(Object.keys(SORT_CLAUSES)).default(DEFAULT_SORT),
-            ),
-        }),
-      )
-      .superRefine((value, context) => {
-        if (value.from && value.to && value.from > value.to) {
-          context.addIssue({
-            code: "custom",
-            path: ["from"],
-            message: "From date must be before or equal to to date",
-          });
-        }
-      }),
+      .merge(z.object(filterFieldShape()))
+      .superRefine(refineFilters)
+      .transform(toQueryShape),
+  );
+
+// Filter-only schema (no pagination), reused to validate saved-view filters.
+const transactionFilterSchema = z
+  .preprocess(
+    normalizeFilterParams,
+    z.object(filterFieldShape()).superRefine(refineFilters).transform(toQueryShape),
   );
 
 function escapeLike(value) {
@@ -353,7 +447,7 @@ function mapTransactionRow(row) {
   };
 }
 
-function buildTransactionFilters(query) {
+export function buildTransactionFilters(query) {
   const conditions = ["t.user_id = ?"];
   const bindings = [query.userId];
 
@@ -367,7 +461,9 @@ function buildTransactionFilters(query) {
     bindings.push(query.source);
   }
 
-  if (query.categoryId !== null) {
+  if (query.uncategorized) {
+    conditions.push("t.category_id IS NULL");
+  } else if (query.categoryId !== null) {
     conditions.push(`
       t.category_id IN (
         SELECT id FROM categories WHERE user_id = ? AND (id = ? OR parent_id = ?)
@@ -379,6 +475,16 @@ function buildTransactionFilters(query) {
   if (query.paymentMethodId !== null) {
     conditions.push("t.payment_method_id = ?");
     bindings.push(query.paymentMethodId);
+  }
+
+  if (query.minAmountPaise !== null && query.minAmountPaise !== undefined) {
+    conditions.push("t.amount_paise >= ?");
+    bindings.push(query.minAmountPaise);
+  }
+
+  if (query.maxAmountPaise !== null && query.maxAmountPaise !== undefined) {
+    conditions.push("t.amount_paise <= ?");
+    bindings.push(query.maxAmountPaise);
   }
 
   if (query.from) {
@@ -418,6 +524,39 @@ export function validateTransactionQuery(input) {
 
 export function validateTransactionId(input) {
   return validate(idSchema, input);
+}
+
+export function validateTransactionFilters(input) {
+  return validate(transactionFilterSchema, input);
+}
+
+// Canonical, serializable filter object for storage in a saved view. Keys
+// mirror the URL/query parameter names so the client can apply them directly.
+export function serializeSavedViewFilters(input) {
+  const result = validateTransactionFilters(input);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  const data = result.data;
+
+  return {
+    ok: true,
+    data: {
+      type: data.type,
+      source: data.source,
+      categoryId: data.categoryId === null ? "" : String(data.categoryId),
+      uncategorized: data.uncategorized ? "true" : "",
+      paymentMethodId: data.paymentMethodId === null ? "" : String(data.paymentMethodId),
+      from: data.from ?? "",
+      to: data.to ?? "",
+      search: data.search ?? "",
+      minAmount: data.minAmountPaise === null ? "" : paiseToRupeesString(data.minAmountPaise),
+      maxAmount: data.maxAmountPaise === null ? "" : paiseToRupeesString(data.maxAmountPaise),
+      sort: data.sort,
+    },
+  };
 }
 
 export async function getTransactionById(db, userId, id) {

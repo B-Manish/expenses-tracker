@@ -91,6 +91,51 @@ page.
 Deleting an SMS-captured transaction also permanently deletes its linked
 `sms_imports` audit row and retained raw message.
 
+## Transaction filters and saved views
+
+The transactions page supports quick-filter chips (This month, Last month, UPI,
+Cash, SMS only, Income only, Food, Uncategorized) plus advanced filters for date
+range, type, category, payment method, source, minimum/maximum amount, and a
+merchant/description search. Compatible filters combine, active filters are shown
+as removable pills, and the full filter state lives in the URL query string so
+views survive a refresh and can be shared. "This month"/"Last month" use the
+app's `Asia/Kolkata` calendar; the Food chip resolves the user's own `Food`
+expense category by name; Uncategorized matches transactions with no category;
+amount bounds are compared against the integer paise amount.
+
+Filtering, pagination, and totals are computed server-side. `GET /api/expenses`
+accepts:
+
+- `type` — `ALL` | `EXPENSE` | `INCOME`
+- `source` — `ALL` | `MANUAL` | `SMS`
+- `categoryId` — numeric category id (matches the category and its subcategories)
+- `uncategorized` — `true` to match transactions with no category
+- `paymentMethodId` — numeric payment-method id
+- `from` / `to` — inclusive `YYYY-MM-DD` bounds
+- `minAmount` / `maxAmount` — inclusive rupee bounds (converted to paise)
+- `search` — case-insensitive match on title, merchant, and notes
+- `sort` — `transaction_date_desc` (default), `transaction_date_asc`,
+  `created_at_desc`, `created_at_asc`, `amount_desc`, `amount_asc`
+- `limit` (1–100, default 50) / `offset` (default 0)
+
+The response includes `items`, `total` (the filtered count), `limit`, and
+`offset`. Sorting is deterministic; every sort breaks ties by `id`.
+
+Authenticated users can save the current filter configuration as a named view.
+Saved views are user-owned and stored in the `saved_transaction_views` table
+(migration `0017_saved_transaction_views.sql`) with the filter data as validated
+JSON. One view per user may be marked as the default and is applied automatically
+when the page is opened without filters. Endpoints (all scoped to the session
+user, so no user can read or modify another's views):
+
+- `GET /api/saved-views` — list the user's views
+- `POST /api/saved-views` — create `{ name, filters, isDefault? }`
+- `PATCH /api/saved-views/:id` — rename, replace filters, or toggle default
+- `DELETE /api/saved-views/:id` — delete a view
+
+View names are 1–80 characters and unique per user (case-insensitive); filter
+values are validated with the same schema used by the transactions endpoint.
+
 Signup and password reset emails are sent through Resend:
 
 ```bash

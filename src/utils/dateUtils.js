@@ -136,6 +136,22 @@ export function getCurrentTimeInKolkata() {
   return `${values.hour}:${values.minute}`;
 }
 
+// Full calendar-month range anchored on the current Kolkata date.
+// monthOffset 0 = this month, -1 = last month.
+export function getMonthRangeInKolkata(monthOffset = 0) {
+  const [year, month] = getTodayInKolkata().split("-").map(Number);
+  const start = new Date(Date.UTC(year, month - 1 + monthOffset, 1));
+  const targetYear = start.getUTCFullYear();
+  const targetMonth = start.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
+  const prefix = `${targetYear}-${String(targetMonth).padStart(2, "0")}`;
+
+  return {
+    from: `${prefix}-01`,
+    to: `${prefix}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 export function formatDateRange(from, to) {
   if (!from && !to) {
     return "Current month";

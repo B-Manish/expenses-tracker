@@ -8,8 +8,10 @@ import ExpenseTable from "../components/ExpenseTable.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
+import SavedViews from "../components/SavedViews.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
+import { isAmountInput } from "../utils/currency.js";
 import { isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
 import { getErrorMessage } from "../utils/validation.js";
@@ -18,6 +20,8 @@ const DEFAULT_FILTERS = Object.freeze({
   categoryId: "",
   from: "",
   limit: "10",
+  maxAmount: "",
+  minAmount: "",
   offset: "0",
   paymentMethodId: "",
   search: "",
@@ -25,13 +29,25 @@ const DEFAULT_FILTERS = Object.freeze({
   sort: "transaction_date_desc",
   to: "",
   type: "ALL",
+  uncategorized: "",
 });
 
 const VALID_TYPES = new Set(["ALL", "EXPENSE", "INCOME"]);
 const VALID_SOURCES = new Set(["ALL", "MANUAL", "SMS"]);
 const VALID_SORTS = new Set(SORT_OPTIONS.map((option) => option.value));
 const VALID_LIMITS = new Set(LIMIT_OPTIONS.map((option) => option.value));
-const FILTER_COUNT_KEYS = ["categoryId", "from", "paymentMethodId", "search", "source", "to", "type"];
+const FILTER_COUNT_KEYS = [
+  "categoryId",
+  "from",
+  "maxAmount",
+  "minAmount",
+  "paymentMethodId",
+  "search",
+  "source",
+  "to",
+  "type",
+  "uncategorized",
+];
 
 function isPositiveId(value) {
   return /^\d+$/.test(value || "") && Number(value) > 0;
@@ -56,11 +72,19 @@ function readFilters(searchParams) {
   const validFrom = from && isValidDateInput(from) ? from : "";
   const validTo = to && isValidDateInput(to) ? to : "";
   const hasValidRange = !(validFrom && validTo && validFrom > validTo);
+  const rawMin = searchParams.get("minAmount") || "";
+  const rawMax = searchParams.get("maxAmount") || "";
+  const validMin = isAmountInput(rawMin) ? rawMin : "";
+  const validMax = isAmountInput(rawMax) ? rawMax : "";
+  const hasValidAmountRange = !(validMin && validMax && Number(validMin) > Number(validMax));
+  const uncategorized = searchParams.get("uncategorized") === "true";
 
   return {
-    categoryId: isPositiveId(categoryId) ? categoryId : "",
+    categoryId: !uncategorized && isPositiveId(categoryId) ? categoryId : "",
     from: hasValidRange ? validFrom : "",
     limit: VALID_LIMITS.has(limit) ? limit : DEFAULT_FILTERS.limit,
+    maxAmount: hasValidAmountRange ? validMax : "",
+    minAmount: hasValidAmountRange ? validMin : "",
     offset: normalizeOffset(searchParams.get("offset") || DEFAULT_FILTERS.offset),
     paymentMethodId: isPositiveId(paymentMethodId) ? paymentMethodId : "",
     search: (searchParams.get("search") || "").slice(0, 120),
@@ -70,6 +94,7 @@ function readFilters(searchParams) {
     sort: VALID_SORTS.has(sort) ? sort : DEFAULT_FILTERS.sort,
     to: hasValidRange ? validTo : "",
     type: VALID_TYPES.has(type) ? type : DEFAULT_FILTERS.type,
+    uncategorized: uncategorized ? "true" : "",
   };
 }
 
@@ -89,9 +114,11 @@ function writeFiltersToParams(filters) {
 
 function toApiQuery(filters) {
   return {
-    categoryId: filters.categoryId,
+    categoryId: filters.uncategorized === "true" ? "" : filters.categoryId,
     from: filters.from,
     limit: filters.limit,
+    maxAmount: filters.maxAmount,
+    minAmount: filters.minAmount,
     offset: filters.offset,
     paymentMethodId: filters.paymentMethodId,
     search: filters.search,
@@ -99,6 +126,7 @@ function toApiQuery(filters) {
     sort: filters.sort,
     to: filters.to,
     type: filters.type,
+    uncategorized: filters.uncategorized,
   };
 }
 
@@ -397,6 +425,13 @@ export default function Expenses() {
           <button type="button" onClick={() => setNotice("")}>Dismiss</button>
         </p>
       ) : null}
+
+      <SavedViews
+        canApplyDefault={!hasActiveFilters(filters)}
+        currentFilters={filters}
+        onApply={updateFilters}
+        onAuthError={handleAuthError}
+      />
 
       {referenceState.status === "error" ? (
         <ErrorState

@@ -436,7 +436,7 @@ export default function Budgets() {
         {items.length ? (
           <ul className="item-list">
             {items.map((budget) => (
-              <li className={budget.isActive ? "list-row budget-row" : "list-row budget-row inactive-row"} key={budget.id}>
+              <li className={budget.isActive ? "budget-row" : "budget-row inactive-row"} key={budget.id}>
                 <div className="budget-row-main">
                   <div className="list-content">
                     <strong>{budget.categoryName || "Uncategorized"}</strong>

@@ -678,7 +678,7 @@
   }
 
   .budget-row {
-    @apply grid gap-3;
+    @apply grid gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30;
   }
 
   .budget-row-main {
@@ -1106,6 +1106,46 @@
 
   .chart-empty {
     @apply min-h-64 items-center;
+  }
+
+  .saved-views {
+    @apply flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3;
+  }
+
+  .saved-views-control {
+    @apply flex min-w-[12rem] flex-1 items-center gap-2 text-muted-foreground;
+  }
+
+  .saved-views-actions {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .quick-filters {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .quick-filter-chip {
+    @apply font-medium;
+  }
+
+  .active-filters {
+    @apply flex flex-wrap items-center gap-2 border-t pt-3;
+  }
+
+  .active-filters-label {
+    @apply text-sm font-semibold text-muted-foreground;
+  }
+
+  .filter-pill {
+    @apply inline-flex max-w-full items-center gap-1.5 rounded-full border bg-muted/60 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50;
+  }
+
+  .filter-pill span:first-child {
+    @apply truncate;
+  }
+
+  .clear-all-button {
+    @apply text-muted-foreground;
   }
 }
 

@@ -42,6 +42,10 @@ export function paiseToRupeesInputValue(amountPaise) {
   return `${rupees}.${String(remainder).padStart(2, "0")}`;
 }
 
+export function isAmountInput(value) {
+  return AMOUNT_PATTERN.test(value || "") && Number(value) > 0;
+}
+
 export function parseRupeesToPaiseInput(input) {
   if (typeof input !== "string") {
     return {

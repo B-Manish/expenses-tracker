@@ -143,6 +143,11 @@ export const api = {
   updateRecurringExpense: (id, payload) => jsonRequest(`/api/recurring-expenses/${id}`, "PUT", payload),
   deleteRecurringExpense: (id) => request(`/api/recurring-expenses/${id}`, { method: "DELETE" }),
 
+  getSavedViews: () => request("/api/saved-views"),
+  createSavedView: (payload) => jsonRequest("/api/saved-views", "POST", payload),
+  updateSavedView: (id, payload) => jsonRequest(`/api/saved-views/${id}`, "PATCH", payload),
+  deleteSavedView: (id) => request(`/api/saved-views/${id}`, { method: "DELETE" }),
+
   getBudgets: () => request("/api/budgets"),
   getBudget: (id) => request(`/api/budgets/${id}`),
   createBudget: (payload) => jsonRequest("/api/budgets", "POST", payload),

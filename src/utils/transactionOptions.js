@@ -3,6 +3,8 @@ export const SORT_OPTIONS = [
   { label: "Date oldest", value: "transaction_date_asc" },
   { label: "Created newest", value: "created_at_desc" },
   { label: "Created oldest", value: "created_at_asc" },
+  { label: "Amount high-low", value: "amount_desc" },
+  { label: "Amount low-high", value: "amount_asc" },
 ];
 
 export const LIMIT_OPTIONS = [
