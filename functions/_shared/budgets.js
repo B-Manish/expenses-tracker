@@ -428,3 +428,29 @@ export async function deactivateBudget(db, userId, id) {
     deactivated: true,
   };
 }
+
+// Deactivates an active budget (preserving history and the active-category
+// slot); permanently removes a budget that is already inactive.
+export async function removeBudget(db, userId, id) {
+  const existing = await db
+    .prepare("SELECT id, is_active FROM budgets WHERE user_id = ? AND id = ?")
+    .bind(userId, id)
+    .first();
+
+  if (!existing) {
+    throw notFound("Budget not found");
+  }
+
+  if (existing.is_active === 1) {
+    return deactivateBudget(db, userId, id);
+  }
+
+  await db
+    .prepare("DELETE FROM budgets WHERE user_id = ? AND id = ?")
+    .bind(userId, id)
+    .run();
+
+  return {
+    deleted: true,
+  };
+}

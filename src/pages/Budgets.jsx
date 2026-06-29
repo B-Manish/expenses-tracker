@@ -254,13 +254,13 @@ export default function Budgets() {
     }));
 
     try {
-      await api.deleteBudget(budget.id);
+      const result = await api.deleteBudget(budget.id);
       setDeleteState({
         budget: null,
         error: "",
         status: "idle",
       });
-      setNotice("Budget deactivated.");
+      setNotice(result?.deleted ? "Budget deleted." : "Budget deactivated.");
       await loadPageData({ silent: true });
 
       if (formState.editingId === budget.id) {
@@ -462,23 +462,21 @@ export default function Budgets() {
                     >
                       <Edit3 size={16} aria-hidden="true" />
                     </Button>
-                    {budget.isActive ? (
-                      <Button
-                        aria-label={`Deactivate ${budget.categoryName} budget`}
-                        className="danger-icon-button"
-                        onClick={() => setDeleteState({
-                          budget,
-                          error: "",
-                          status: "idle",
-                        })}
-                        size="icon"
-                        title={`Deactivate ${budget.categoryName} budget`}
-                        type="button"
-                        variant="outline"
-                      >
-                        <Trash2 size={16} aria-hidden="true" />
-                      </Button>
-                    ) : null}
+                    <Button
+                      aria-label={`${budget.isActive ? "Deactivate" : "Delete"} ${budget.categoryName} budget`}
+                      className="danger-icon-button"
+                      onClick={() => setDeleteState({
+                        budget,
+                        error: "",
+                        status: "idle",
+                      })}
+                      size="icon"
+                      title={`${budget.isActive ? "Deactivate" : "Delete"} ${budget.categoryName} budget`}
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trash2 size={16} aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
                 <BudgetProgress budget={budget} />
@@ -495,10 +493,16 @@ export default function Budgets() {
       </section>
 
       <ConfirmDialog
-        confirmLabel="Deactivate"
+        confirmLabel={deleteState.budget?.isActive ? "Deactivate" : "Delete"}
         error={deleteState.error}
         isBusy={deleteState.status === "submitting"}
-        message={deleteState.budget ? `Deactivate the ${deleteState.budget.categoryName} budget? It will stop tracking progress.` : ""}
+        message={
+          deleteState.budget
+            ? deleteState.budget.isActive
+              ? `Deactivate the ${deleteState.budget.categoryName} budget? It will stop tracking progress.`
+              : `Delete the ${deleteState.budget.categoryName} budget? This cannot be undone.`
+            : ""
+        }
         onCancel={() => setDeleteState({
           budget: null,
           error: "",
@@ -506,7 +510,7 @@ export default function Budgets() {
         })}
         onConfirm={confirmDeactivate}
         open={Boolean(deleteState.budget)}
-        title="Deactivate budget"
+        title={deleteState.budget?.isActive ? "Deactivate budget" : "Delete budget"}
       />
     </section>
   );

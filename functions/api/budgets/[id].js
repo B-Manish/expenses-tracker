@@ -1,7 +1,7 @@
 import { getSessionUserId, requireAuth } from "../../_shared/auth.js";
 import {
-  deactivateBudget,
   getBudgetById,
+  removeBudget,
   updateBudget,
   validateBudgetId,
   validateBudgetPayload,
@@ -93,7 +93,7 @@ export const onRequest = createApiHandler({
     }
 
     return success(
-      await deactivateBudget(
+      await removeBudget(
         requireDb(context),
         getSessionUserId(auth.session),
         idValidation.data,

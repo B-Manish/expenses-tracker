@@ -6,6 +6,7 @@ import {
   deactivateBudget,
   getBudgetById,
   listBudgets,
+  removeBudget,
   updateBudget,
   validateBudgetPayload,
 } from "../functions/_shared/budgets.js";
@@ -61,6 +62,12 @@ class MemoryDb {
         return this;
       },
       async first() {
+        if (sql.includes("SELECT id, is_active FROM budgets")) {
+          const [userId, id] = this.values;
+          const row = db.budgets.find((b) => b.user_id === userId && b.id === id);
+          return row ? { id: row.id, is_active: row.is_active } : null;
+        }
+
         if (sql.includes("FROM budgets b")) {
           const [userId, id] = this.values;
           const row = db.budgets.find((b) => b.user_id === userId && b.id === id);
@@ -150,6 +157,13 @@ class MemoryDb {
         throw new Error(`Unexpected all() query: ${sql}`);
       },
       async run() {
+        if (sql.includes("DELETE FROM budgets")) {
+          const [userId, id] = this.values;
+          const index = db.budgets.findIndex((b) => b.user_id === userId && b.id === id);
+          if (index >= 0) db.budgets.splice(index, 1);
+          return { meta: { changes: index >= 0 ? 1 : 0 } };
+        }
+
         if (sql.includes("INTO budgets")) {
           const [userId, categoryId, amountPaise, period, isActive] = this.values;
           const id = db.nextBudgetId++;
@@ -367,6 +381,68 @@ test("deactivateBudget soft-deactivates instead of deleting", async () => {
   assert.deepEqual(result, { deactivated: true });
   assert.equal(db.budgets.length, 1);
   assert.equal(db.budgets[0].is_active, 0);
+});
+
+test("removeBudget deactivates an active budget but keeps the row", async () => {
+  const db = new MemoryDb({
+    categories: [expenseCategory()],
+    budgets: [{
+      id: 1,
+      user_id: USER_ID,
+      category_id: 1,
+      amount_paise: 100000,
+      period: "MONTHLY",
+      is_active: 1,
+      created_at: "2026-06-01 00:00:00",
+      updated_at: "2026-06-01 00:00:00",
+    }],
+  });
+
+  const result = await removeBudget(db, USER_ID, 1);
+
+  assert.deepEqual(result, { deactivated: true });
+  assert.equal(db.budgets.length, 1);
+  assert.equal(db.budgets[0].is_active, 0);
+});
+
+test("removeBudget permanently deletes an inactive budget", async () => {
+  const db = new MemoryDb({
+    categories: [expenseCategory()],
+    budgets: [{
+      id: 1,
+      user_id: USER_ID,
+      category_id: 1,
+      amount_paise: 100000,
+      period: "MONTHLY",
+      is_active: 0,
+      created_at: "2026-06-01 00:00:00",
+      updated_at: "2026-06-01 00:00:00",
+    }],
+  });
+
+  const result = await removeBudget(db, USER_ID, 1);
+
+  assert.deepEqual(result, { deleted: true });
+  assert.equal(db.budgets.length, 0);
+});
+
+test("removeBudget enforces ownership", async () => {
+  const db = new MemoryDb({
+    categories: [expenseCategory()],
+    budgets: [{
+      id: 1,
+      user_id: USER_ID,
+      category_id: 1,
+      amount_paise: 100000,
+      period: "MONTHLY",
+      is_active: 0,
+      created_at: "2026-06-01 00:00:00",
+      updated_at: "2026-06-01 00:00:00",
+    }],
+  });
+
+  await assert.rejects(() => removeBudget(db, OTHER_USER_ID, 1), /not found/);
+  assert.equal(db.budgets.length, 1);
 });
 
 test("budgets are isolated per user", async () => {
