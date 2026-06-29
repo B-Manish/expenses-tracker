@@ -14,6 +14,7 @@ import {
 } from "../functions/_shared/transactions.js";
 
 const TOKEN = "test-sms-ingest-token-with-at-least-32-characters";
+const USER_ID = "phone:9949055750";
 
 class MemorySmsDb {
   constructor() {
@@ -33,11 +34,14 @@ class MemorySmsDb {
       async run() {
         if (sql.includes("INSERT OR IGNORE INTO transactions")) {
           const [
+            userId,
             type,
             title,
             amountPaise,
+            categoryUserId,
             categoryName,
             categoryType,
+            paymentMethodUserId,
             paymentMethodName,
             transactionDate,
             transactionTime,
@@ -56,11 +60,14 @@ class MemorySmsDb {
 
           db.transactions.push({
             id,
+            user_id: userId,
             type,
             title,
             amount_paise: amountPaise,
+            category_user_id: categoryUserId,
             category_name: categoryName,
             category_type: categoryType,
+            payment_method_user_id: paymentMethodUserId,
             payment_method_name: paymentMethodName,
             transaction_date: transactionDate,
             transaction_time: transactionTime,
@@ -217,7 +224,7 @@ class DeleteTransactionDb {
         }
 
         if (sql.includes("DELETE FROM sms_imports")) {
-          db.deletedSmsImportIds.push(this.values[0]);
+          db.deletedSmsImportIds.push(this.values[1]);
           return { meta: { changes: 1 } };
         }
 
@@ -336,19 +343,20 @@ test("transaction listing applies source filters in database queries", async () 
     const db = new RecordingTransactionDb();
 
     assert.equal(validation.ok, true);
-    await listTransactions(db, validation.data);
+    await listTransactions(db, USER_ID, validation.data);
     assert.equal(db.statements.length, 2);
 
     for (const statement of db.statements) {
-      assert.match(statement.sql, /WHERE t\.source = \?/);
-      assert.equal(statement.bindings[0], source);
+      assert.match(statement.sql, /t\.source = \?/);
+      assert.equal(statement.bindings[0], USER_ID);
+      assert.equal(statement.bindings[1], source);
     }
   }
 });
 
 test("deleting an SMS transaction also deletes its import and raw message row", async () => {
   const db = new DeleteTransactionDb(42);
-  const result = await deleteTransaction(db, 1);
+  const result = await deleteTransaction(db, USER_ID, 1);
 
   assert.deepEqual(result, {
     deleted: true,
@@ -359,7 +367,7 @@ test("deleting an SMS transaction also deletes its import and raw message row", 
 
 test("deleting a manual transaction does not delete an SMS import", async () => {
   const db = new DeleteTransactionDb(null);
-  const result = await deleteTransaction(db, 1);
+  const result = await deleteTransaction(db, USER_ID, 1);
 
   assert.deepEqual(result, {
     deleted: true,

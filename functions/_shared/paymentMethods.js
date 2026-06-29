@@ -35,11 +35,11 @@ function mapPaymentMethodRow(row) {
   };
 }
 
-async function findPaymentMethodByDuplicateName(db, name, ignoredId = null) {
+async function findPaymentMethodByDuplicateName(db, userId, name, ignoredId = null) {
   if (ignoredId === null) {
     return db
-      .prepare("SELECT id FROM payment_methods WHERE LOWER(name) = LOWER(?) LIMIT 1")
-      .bind(name)
+      .prepare("SELECT id FROM payment_methods WHERE user_id = ? AND LOWER(name) = LOWER(?) LIMIT 1")
+      .bind(userId, name)
       .first();
   }
 
@@ -47,26 +47,27 @@ async function findPaymentMethodByDuplicateName(db, name, ignoredId = null) {
     .prepare(`
       SELECT id
       FROM payment_methods
-      WHERE LOWER(name) = LOWER(?)
+      WHERE user_id = ?
+      AND LOWER(name) = LOWER(?)
       AND id <> ?
       LIMIT 1
     `)
-    .bind(name, ignoredId)
+    .bind(userId, name, ignoredId)
     .first();
 }
 
-async function assertUniquePaymentMethodName(db, name, ignoredId = null) {
-  const duplicate = await findPaymentMethodByDuplicateName(db, name, ignoredId);
+async function assertUniquePaymentMethodName(db, userId, name, ignoredId = null) {
+  const duplicate = await findPaymentMethodByDuplicateName(db, userId, name, ignoredId);
 
   if (duplicate) {
     throw conflict("Payment method name already exists");
   }
 }
 
-async function getPaymentMethodUsageCount(db, id) {
+async function getPaymentMethodUsageCount(db, userId, id) {
   const row = await db
-    .prepare("SELECT COUNT(*) AS count FROM transactions WHERE payment_method_id = ?")
-    .bind(id)
+    .prepare("SELECT COUNT(*) AS count FROM transactions WHERE user_id = ? AND payment_method_id = ?")
+    .bind(userId, id)
     .first();
 
   return row?.count ?? 0;
@@ -90,13 +91,15 @@ export function validatePaymentMethodId(input) {
   return validate(idSchema, input);
 }
 
-export async function listPaymentMethods(db) {
+export async function listPaymentMethods(db, userId) {
   const rows = await db
     .prepare(`
       SELECT id, name, is_default, created_at, updated_at
       FROM payment_methods
+      WHERE user_id = ?
       ORDER BY is_default DESC, LOWER(name) ASC, id ASC
     `)
+    .bind(userId)
     .all();
 
   return {
@@ -104,28 +107,29 @@ export async function listPaymentMethods(db) {
   };
 }
 
-export async function getPaymentMethodById(db, id) {
+export async function getPaymentMethodById(db, userId, id) {
   const row = await db
     .prepare(`
       SELECT id, name, is_default, created_at, updated_at
       FROM payment_methods
-      WHERE id = ?
+      WHERE user_id = ?
+        AND id = ?
     `)
-    .bind(id)
+    .bind(userId, id)
     .first();
 
   return row ? mapPaymentMethodRow(row) : null;
 }
 
-export async function createPaymentMethod(db, paymentMethod) {
-  await assertUniquePaymentMethodName(db, paymentMethod.name);
+export async function createPaymentMethod(db, userId, paymentMethod) {
+  await assertUniquePaymentMethodName(db, userId, paymentMethod.name);
 
   const result = await db
     .prepare(`
-      INSERT INTO payment_methods (name, is_default)
-      VALUES (?, 0)
+      INSERT INTO payment_methods (user_id, name, is_default)
+      VALUES (?, ?, 0)
     `)
-    .bind(paymentMethod.name)
+    .bind(userId, paymentMethod.name)
     .run();
 
   const id = result.meta?.last_row_id;
@@ -134,34 +138,35 @@ export async function createPaymentMethod(db, paymentMethod) {
     throw badRequest("Payment method could not be created");
   }
 
-  return getPaymentMethodById(db, id);
+  return getPaymentMethodById(db, userId, id);
 }
 
-export async function updatePaymentMethod(db, id, paymentMethod) {
-  const existing = await getPaymentMethodById(db, id);
+export async function updatePaymentMethod(db, userId, id, paymentMethod) {
+  const existing = await getPaymentMethodById(db, userId, id);
 
   if (!existing) {
     throw notFound("Payment method not found");
   }
 
   assertDefaultPaymentMethodCanBeUpdated(existing, paymentMethod);
-  await assertUniquePaymentMethodName(db, paymentMethod.name, id);
+  await assertUniquePaymentMethodName(db, userId, paymentMethod.name, id);
   await db
     .prepare(`
       UPDATE payment_methods
       SET
         name = ?,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE user_id = ?
+        AND id = ?
     `)
-    .bind(paymentMethod.name, id)
+    .bind(paymentMethod.name, userId, id)
     .run();
 
-  return getPaymentMethodById(db, id);
+  return getPaymentMethodById(db, userId, id);
 }
 
-export async function deletePaymentMethod(db, id) {
-  const existing = await getPaymentMethodById(db, id);
+export async function deletePaymentMethod(db, userId, id) {
+  const existing = await getPaymentMethodById(db, userId, id);
 
   if (!existing) {
     throw notFound("Payment method not found");
@@ -171,13 +176,13 @@ export async function deletePaymentMethod(db, id) {
     throw conflict("Default payment methods cannot be deleted");
   }
 
-  const usageCount = await getPaymentMethodUsageCount(db, id);
+  const usageCount = await getPaymentMethodUsageCount(db, userId, id);
 
   if (usageCount > 0) {
     throw conflict("Payment method is used by transactions");
   }
 
-  await db.prepare("DELETE FROM payment_methods WHERE id = ?").bind(id).run();
+  await db.prepare("DELETE FROM payment_methods WHERE user_id = ? AND id = ?").bind(userId, id).run();
 
   return {
     deleted: true,

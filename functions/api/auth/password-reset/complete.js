@@ -1,6 +1,7 @@
 import { failure, methodNotAllowed, success } from "../../../_shared/json.js";
 import { readJsonBody } from "../../../_shared/http.js";
-import { setAppPassword, validateNewPassword } from "../../../_shared/appPassword.js";
+import { validateNewPassword } from "../../../_shared/appPassword.js";
+import { setUserPassword } from "../../../_shared/emailAuth.js";
 import {
   consumeResetPasswordToken,
   isPasswordResetConfigured,
@@ -55,7 +56,7 @@ export async function onRequest(context) {
   }
 
   try {
-    await setAppPassword(env.DB, env, password.trim());
+    await setUserPassword(env.DB, env, consumedToken.email, password.trim());
     return success({ reset: true });
   } catch (error) {
     console.error("Password reset update failed", error);

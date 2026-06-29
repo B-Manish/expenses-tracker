@@ -1,7 +1,7 @@
 import { errorResponse, internalServerError, unauthorized } from "./errors.js";
 
 export const SESSION_COOKIE_NAME = "expenses_session";
-export const DEFAULT_USER_ID = "personal";
+export const DEFAULT_USER_ID = "phone:9949055750";
 
 const SESSION_DURATION_SECONDS = 7 * 24 * 60 * 60;
 const encoder = new TextEncoder();
@@ -17,9 +17,7 @@ function getSessionSecret(env) {
 
 export function isAuthConfigured(env) {
   return Boolean(
-    env?.APP_PASSWORD &&
-      typeof env.APP_PASSWORD === "string" &&
-      env?.SESSION_SECRET &&
+    env?.SESSION_SECRET &&
       typeof env.SESSION_SECRET === "string",
   );
 }
@@ -116,7 +114,7 @@ function shouldUseSecureCookie(request) {
   return url.protocol === "https:" || forwardedProto === "https";
 }
 
-export async function createSessionCookie(request, env) {
+export async function createSessionCookie(request, env, userId = DEFAULT_USER_ID) {
   const secret = getSessionSecret(env);
 
   if (!secret) {
@@ -127,7 +125,7 @@ export async function createSessionCookie(request, env) {
   const expiresAt = issuedAt + SESSION_DURATION_SECONDS;
   const payload = base64UrlEncodeText(
     JSON.stringify({
-      userId: DEFAULT_USER_ID,
+      userId,
       iat: issuedAt,
       exp: expiresAt,
     }),

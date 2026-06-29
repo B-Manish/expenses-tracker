@@ -772,6 +772,10 @@
     @apply grid gap-3;
   }
 
+  .auth-mode-switch {
+    @apply grid grid-cols-2 gap-2;
+  }
+
   .field-label {
     @apply text-sm font-medium text-foreground;
   }
@@ -832,7 +836,7 @@
 
   .code-input {
     @apply text-center font-bold;
-    letter-spacing: 0.16em;
+    letter-spacing: 0;
   }
 
   .transaction-detail {

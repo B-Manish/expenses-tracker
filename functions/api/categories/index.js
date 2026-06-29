@@ -1,4 +1,4 @@
-import { requireAuth } from "../../_shared/auth.js";
+import { getSessionUserId, requireAuth } from "../../_shared/auth.js";
 import { requireDb } from "../../_shared/db.js";
 import { createApiHandler, parseJsonBody } from "../../_shared/http.js";
 import { success } from "../../_shared/json.js";
@@ -12,15 +12,15 @@ import {
 async function requireAuthenticatedRequest(context) {
   const auth = await requireAuth(context);
 
-  return auth.authenticated ? null : auth.response;
+  return auth.authenticated ? auth : { response: auth.response };
 }
 
 export const onRequest = createApiHandler({
   async GET(context) {
-    const authResponse = await requireAuthenticatedRequest(context);
+    const auth = await requireAuthenticatedRequest(context);
 
-    if (authResponse) {
-      return authResponse;
+    if (auth.response) {
+      return auth.response;
     }
 
     const db = requireDb(context);
@@ -31,14 +31,14 @@ export const onRequest = createApiHandler({
       return validation.response;
     }
 
-    return success(await listCategories(db, validation.data));
+    return success(await listCategories(db, getSessionUserId(auth.session), validation.data));
   },
 
   async POST(context) {
-    const authResponse = await requireAuthenticatedRequest(context);
+    const auth = await requireAuthenticatedRequest(context);
 
-    if (authResponse) {
-      return authResponse;
+    if (auth.response) {
+      return auth.response;
     }
 
     const db = requireDb(context);
@@ -49,6 +49,6 @@ export const onRequest = createApiHandler({
       return validation.response;
     }
 
-    return success(await createCategory(db, validation.data), 201);
+    return success(await createCategory(db, getSessionUserId(auth.session), validation.data), 201);
   },
 });

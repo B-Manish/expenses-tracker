@@ -8,10 +8,10 @@ A personal expense and income tracker built for the Cloudflare free tier.
 - Cloudflare Pages hosting
 - Cloudflare Pages Functions API
 - Cloudflare D1 database
-- App-password authentication with signed HttpOnly cookies
+- Email/password authentication with verified-email signup and signed HttpOnly cookies
 
 The app stores money as integer paise and uses `Asia/Kolkata` for user-facing date calculations.
-The initial login password comes from `APP_PASSWORD`. If you later reset the password through the forgot-password flow, the new password is stored as a hash in D1 and takes precedence over the original environment value.
+Existing personal data is mapped to the user `MSDian` at `batchumanish@gmail.com`.
 
 ## Local Development
 
@@ -45,7 +45,20 @@ If the D1 binding is not detected before the real database ID is configured, pas
 npx wrangler pages dev dist --d1 DB=<DATABASE_ID>
 ```
 
-For local auth testing, set `APP_PASSWORD` and `SESSION_SECRET` in `.dev.vars`. This file is ignored by git.
+For local auth testing, set `SESSION_SECRET` in `.dev.vars`. To test email codes without sending email, set:
+
+```bash
+EMAIL_DEV_SHOW_CODES=true
+```
+
+With that local-only flag, signup and password-reset verification endpoints return the code in the response so the login form can display it.
+
+For production email delivery, configure Resend:
+
+```bash
+RESEND_API_KEY=your-resend-api-key
+RESET_EMAIL_FROM=Expense Tracker <verified-sender@example.com>
+```
 
 To accept bank transaction messages from an iPhone Shortcuts automation, also
 set a dedicated random token of at least 32 characters:
@@ -78,15 +91,12 @@ page.
 Deleting an SMS-captured transaction also permanently deletes its linked
 `sms_imports` audit row and retained raw message.
 
-Password reset emails are sent through Resend. To enable the "Forgot password?" flow, also set:
+Signup and password reset emails are sent through Resend:
 
 ```bash
 RESEND_API_KEY=your-resend-api-key
 RESET_EMAIL_FROM=Expense Tracker <verified-sender@example.com>
-RESET_EMAIL_TO=batchumanish@gmail.com
 ```
-
-`RESET_EMAIL_TO` is optional and defaults to `batchumanish@gmail.com`.
 
 ## Cloudflare Deployment
 
@@ -134,11 +144,9 @@ npx wrangler d1 migrations apply expenses-tracker-db --remote
 
 7. Configure production environment variables in Cloudflare Pages:
 
-- `APP_PASSWORD`
 - `SESSION_SECRET`
 - `RESEND_API_KEY`
 - `RESET_EMAIL_FROM`
-- `RESET_EMAIL_TO` optional; defaults to `batchumanish@gmail.com`
 - `SMS_INGEST_TOKEN`
 
 Do not put secret values in React source files, `wrangler.toml`, or committed documentation.
@@ -158,9 +166,10 @@ After deployment, verify:
 - Static app loads.
 - `GET /api/health` returns success.
 - `GET /api/expenses` returns `401` when logged out.
-- Login works with the configured `APP_PASSWORD`.
-- Forgot password sends a verification code to the configured reset email.
-- After password reset, login works with the newly saved password from D1.
+- Sign in works with an existing email address and password.
+- Sign up requires full name, email address, password confirmation, and the correct emailed verification code.
+- Forgot/reset password sends a verification code to the registered email and allows setting a new password after code verification.
+- The migrated `MSDian` account at `batchumanish@gmail.com` can see the existing data.
 - Add, edit, and delete an expense.
 - Add, edit, and delete income.
 - Add, edit, and delete unused custom categories.
@@ -177,4 +186,4 @@ After deployment, verify:
 - SMS transactions are created automatically; a dedicated raw-message review
   screen is not yet implemented.
 - Live bank sync, direct SBI API calls, Account Aggregator integration, OTP collection, and bank credential collection are not implemented.
-- The app is intended for personal use on Cloudflare Pages, Pages Functions, and D1 free-tier infrastructure.
+- The app now supports separate email users, but billing, legal, support, and operational hardening are still needed before a broad public launch.

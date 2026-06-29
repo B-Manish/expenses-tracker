@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { DEFAULT_USER_ID } from "./auth.js";
 import {
   badRequest,
   internalServerError,
@@ -14,6 +13,7 @@ export const SMS_PARSER_VERSION = "bank-sms-v1";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const TRANSACTION_KEYWORD_PATTERN = /\b(?:debit(?:ed)?|credit(?:ed)?)\b/i;
+const DEFAULT_SMS_USER_ID = "phone:9949055750";
 const smsIngestSchema = z
   .object({
     sender: z
@@ -373,6 +373,7 @@ async function createTransactionFromSmsImport(db, smsImport) {
   await db
     .prepare(`
       INSERT OR IGNORE INTO transactions (
+        user_id,
         type,
         title,
         amount_paise,
@@ -389,8 +390,9 @@ async function createTransactionFromSmsImport(db, smsImport) {
         ?,
         ?,
         ?,
-        (SELECT id FROM categories WHERE name = ? AND type = ? LIMIT 1),
-        (SELECT id FROM payment_methods WHERE name = ? LIMIT 1),
+        ?,
+        (SELECT id FROM categories WHERE user_id = ? AND name = ? AND type = ? LIMIT 1),
+        (SELECT id FROM payment_methods WHERE user_id = ? AND name = ? LIMIT 1),
         ?,
         ?,
         ?,
@@ -400,11 +402,14 @@ async function createTransactionFromSmsImport(db, smsImport) {
       )
     `)
     .bind(
+      smsImport.user_id,
       smsImport.suggested_type,
       createSmsTransactionTitle(smsImport),
       smsImport.amount_paise,
+      smsImport.user_id,
       categoryName,
       smsImport.suggested_type,
+      smsImport.user_id,
       getSmsPaymentMethodName(smsImport.payment_rail),
       smsImport.transaction_date,
       smsImport.transaction_time,
@@ -424,7 +429,7 @@ export async function ingestSmsImport(db, env, input, token, options = {}) {
   );
   const userId = normalizeEnvironmentIdentifier(
     env?.SMS_INGEST_USER_ID,
-    DEFAULT_USER_ID,
+    DEFAULT_SMS_USER_ID,
   );
   const deviceId = normalizeEnvironmentIdentifier(
     env?.SMS_INGEST_DEVICE_ID,

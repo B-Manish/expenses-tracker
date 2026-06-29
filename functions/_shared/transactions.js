@@ -354,8 +354,8 @@ function mapTransactionRow(row) {
 }
 
 function buildTransactionFilters(query) {
-  const conditions = [];
-  const bindings = [];
+  const conditions = ["t.user_id = ?"];
+  const bindings = [query.userId];
 
   if (query.type !== "ALL") {
     conditions.push("t.type = ?");
@@ -370,10 +370,10 @@ function buildTransactionFilters(query) {
   if (query.categoryId !== null) {
     conditions.push(`
       t.category_id IN (
-        SELECT id FROM categories WHERE id = ? OR parent_id = ?
+        SELECT id FROM categories WHERE user_id = ? AND (id = ? OR parent_id = ?)
       )
     `);
-    bindings.push(query.categoryId, query.categoryId);
+    bindings.push(query.userId, query.categoryId, query.categoryId);
   }
 
   if (query.paymentMethodId !== null) {
@@ -420,23 +420,23 @@ export function validateTransactionId(input) {
   return validate(idSchema, input);
 }
 
-export async function getTransactionById(db, id) {
+export async function getTransactionById(db, userId, id) {
   const row = await db
-    .prepare(`${SELECT_TRANSACTION_SQL} WHERE t.id = ?`)
-    .bind(id)
+    .prepare(`${SELECT_TRANSACTION_SQL} WHERE t.user_id = ? AND t.id = ?`)
+    .bind(userId, id)
     .first();
 
   return row ? mapTransactionRow(row) : null;
 }
 
-async function assertCategoryMatchesTransactionType(db, transaction) {
+async function assertCategoryMatchesTransactionType(db, userId, transaction) {
   if (transaction.categoryId === null) {
     return;
   }
 
   const category = await db
-    .prepare("SELECT id, type FROM categories WHERE id = ?")
-    .bind(transaction.categoryId)
+    .prepare("SELECT id, type FROM categories WHERE user_id = ? AND id = ?")
+    .bind(userId, transaction.categoryId)
     .first();
 
   if (!category) {
@@ -448,14 +448,14 @@ async function assertCategoryMatchesTransactionType(db, transaction) {
   }
 }
 
-async function assertPaymentMethodExists(db, transaction) {
+async function assertPaymentMethodExists(db, userId, transaction) {
   if (transaction.paymentMethodId === null) {
     return;
   }
 
   const paymentMethod = await db
-    .prepare("SELECT id FROM payment_methods WHERE id = ?")
-    .bind(transaction.paymentMethodId)
+    .prepare("SELECT id FROM payment_methods WHERE user_id = ? AND id = ?")
+    .bind(userId, transaction.paymentMethodId)
     .first();
 
   if (!paymentMethod) {
@@ -463,13 +463,13 @@ async function assertPaymentMethodExists(db, transaction) {
   }
 }
 
-async function assertTransactionReferences(db, transaction) {
-  await assertCategoryMatchesTransactionType(db, transaction);
-  await assertPaymentMethodExists(db, transaction);
+async function assertTransactionReferences(db, userId, transaction) {
+  await assertCategoryMatchesTransactionType(db, userId, transaction);
+  await assertPaymentMethodExists(db, userId, transaction);
 }
 
-export async function listTransactions(db, query) {
-  const { whereSql, bindings } = buildTransactionFilters(query);
+export async function listTransactions(db, userId, query) {
+  const { whereSql, bindings } = buildTransactionFilters({ ...query, userId });
   const countRow = await db
     .prepare(`SELECT COUNT(*) AS total FROM transactions t ${whereSql}`)
     .bind(...bindings)
@@ -492,12 +492,13 @@ export async function listTransactions(db, query) {
   };
 }
 
-export async function createTransaction(db, transaction) {
-  await assertTransactionReferences(db, transaction);
+export async function createTransaction(db, userId, transaction) {
+  await assertTransactionReferences(db, userId, transaction);
 
   const result = await db
     .prepare(`
       INSERT INTO transactions (
+        user_id,
         type,
         title,
         amount_paise,
@@ -508,9 +509,10 @@ export async function createTransaction(db, transaction) {
         merchant,
         notes
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .bind(
+      userId,
       transaction.type,
       transaction.title,
       transaction.amountPaise,
@@ -529,17 +531,17 @@ export async function createTransaction(db, transaction) {
     throw badRequest("Transaction could not be created");
   }
 
-  return getTransactionById(db, id);
+  return getTransactionById(db, userId, id);
 }
 
-export async function updateTransaction(db, id, transaction) {
-  const existing = await getTransactionById(db, id);
+export async function updateTransaction(db, userId, id, transaction) {
+  const existing = await getTransactionById(db, userId, id);
 
   if (!existing) {
     throw notFound("Transaction not found");
   }
 
-  await assertTransactionReferences(db, transaction);
+  await assertTransactionReferences(db, userId, transaction);
   await db
     .prepare(`
       UPDATE transactions
@@ -554,7 +556,8 @@ export async function updateTransaction(db, id, transaction) {
         merchant = ?,
         notes = ?,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE user_id = ?
+        AND id = ?
     `)
     .bind(
       transaction.type,
@@ -566,26 +569,27 @@ export async function updateTransaction(db, id, transaction) {
       transaction.transactionTime,
       transaction.merchant,
       transaction.notes,
+      userId,
       id,
     )
     .run();
 
-  return getTransactionById(db, id);
+  return getTransactionById(db, userId, id);
 }
 
-export async function deleteTransaction(db, id) {
-  const existing = await getTransactionById(db, id);
+export async function deleteTransaction(db, userId, id) {
+  const existing = await getTransactionById(db, userId, id);
 
   if (!existing) {
     throw notFound("Transaction not found");
   }
 
-  await db.prepare("DELETE FROM transactions WHERE id = ?").bind(id).run();
+  await db.prepare("DELETE FROM transactions WHERE user_id = ? AND id = ?").bind(userId, id).run();
 
   if (existing.smsImportId !== null) {
     await db
-      .prepare("DELETE FROM sms_imports WHERE id = ?")
-      .bind(existing.smsImportId)
+      .prepare("DELETE FROM sms_imports WHERE user_id = ? AND id = ?")
+      .bind(userId, existing.smsImportId)
       .run();
   }
 

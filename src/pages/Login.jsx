@@ -6,29 +6,22 @@ import { useAuth } from "../services/auth.js";
 
 export default function Login() {
   const {
-    completePasswordReset,
     error,
     login,
+    completePasswordReset,
     refreshAuth,
     requestPasswordReset,
+    requestSignupCode,
     status,
     verifyPasswordReset,
+    verifySignupCode,
   } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const notice = location.state?.notice;
 
-  async function handleLogin(password) {
-    await login(password);
+  async function handleAuthenticated() {
     navigate("/", { replace: true });
-  }
-
-  async function handleVerifyReset(code) {
-    return verifyPasswordReset(code);
-  }
-
-  async function handleCompleteReset(token, password) {
-    await completePasswordReset(token, password);
   }
 
   return (
@@ -56,10 +49,13 @@ export default function Login() {
         {notice ? <p className="notice-message">{notice}</p> : null}
 
         <LoginForm
-          onCompleteReset={handleCompleteReset}
+          onAuthenticated={handleAuthenticated}
+          onLogin={login}
+          onCompleteReset={completePasswordReset}
           onRequestReset={requestPasswordReset}
-          onSubmit={handleLogin}
-          onVerifyReset={handleVerifyReset}
+          onRequestSignupCode={requestSignupCode}
+          onVerifyReset={verifyPasswordReset}
+          onVerifySignupCode={verifySignupCode}
         />
       </section>
     </main>

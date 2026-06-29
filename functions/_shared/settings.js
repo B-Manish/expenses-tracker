@@ -127,14 +127,14 @@ function normalizeStoredValue(key, value) {
   return fallback;
 }
 
-async function ensureDefaultSettings(db) {
+async function ensureDefaultSettings(db, userId) {
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
     await db
       .prepare(`
-        INSERT OR IGNORE INTO settings (key, value)
-        VALUES (?, ?)
+        INSERT OR IGNORE INTO settings (user_id, key, value)
+        VALUES (?, ?, ?)
       `)
-      .bind(key, value)
+      .bind(userId, key, value)
       .run();
   }
 }
@@ -157,22 +157,23 @@ export function validateSettingsPayload(input) {
   return validate(settingsPayloadSchema, input);
 }
 
-export async function getSettings(db) {
-  await ensureDefaultSettings(db);
+export async function getSettings(db, userId) {
+  await ensureDefaultSettings(db, userId);
 
   const rows = await db
     .prepare(`
       SELECT key, value, updated_at
       FROM settings
-      WHERE key IN (?, ?, ?, ?)
+      WHERE user_id = ?
+        AND key IN (?, ?, ?, ?)
     `)
-    .bind(...SETTINGS_KEYS)
+    .bind(userId, ...SETTINGS_KEYS)
     .all();
 
   return mapSettingsRows(rows.results || []);
 }
 
-export async function updateSettings(db, settings) {
+export async function updateSettings(db, userId, settings) {
   const rows = mapPayloadToRows(settings);
 
   if (!rows.length) {
@@ -182,15 +183,15 @@ export async function updateSettings(db, settings) {
   for (const [key, value] of rows) {
     await db
       .prepare(`
-        INSERT INTO settings (key, value, updated_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(key) DO UPDATE SET
+        INSERT INTO settings (user_id, key, value, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id, key) DO UPDATE SET
           value = excluded.value,
           updated_at = CURRENT_TIMESTAMP
       `)
-      .bind(key, value)
+      .bind(userId, key, value)
       .run();
   }
 
-  return getSettings(db);
+  return getSettings(db, userId);
 }

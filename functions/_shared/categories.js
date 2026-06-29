@@ -141,11 +141,11 @@ function mapCategoryRow(row) {
   };
 }
 
-async function findCategoryByDuplicateName(db, name, ignoredId = null) {
+async function findCategoryByDuplicateName(db, userId, name, ignoredId = null) {
   if (ignoredId === null) {
     return db
-      .prepare("SELECT id FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1")
-      .bind(name)
+      .prepare("SELECT id FROM categories WHERE user_id = ? AND LOWER(name) = LOWER(?) LIMIT 1")
+      .bind(userId, name)
       .first();
   }
 
@@ -153,39 +153,40 @@ async function findCategoryByDuplicateName(db, name, ignoredId = null) {
     .prepare(`
       SELECT id
       FROM categories
-      WHERE LOWER(name) = LOWER(?)
+      WHERE user_id = ?
+      AND LOWER(name) = LOWER(?)
       AND id <> ?
       LIMIT 1
     `)
-    .bind(name, ignoredId)
+    .bind(userId, name, ignoredId)
     .first();
 }
 
-async function assertUniqueCategoryName(db, name, ignoredId = null) {
-  const duplicate = await findCategoryByDuplicateName(db, name, ignoredId);
+async function assertUniqueCategoryName(db, userId, name, ignoredId = null) {
+  const duplicate = await findCategoryByDuplicateName(db, userId, name, ignoredId);
 
   if (duplicate) {
     throw conflict("Category name already exists");
   }
 }
 
-async function getCategoryUsageCount(db, id) {
+async function getCategoryUsageCount(db, userId, id) {
   const row = await db
     .prepare(`
       SELECT
-        (SELECT COUNT(*) FROM transactions WHERE category_id = ?) +
-        (SELECT COUNT(*) FROM recurring_expenses WHERE category_id = ?) AS count
+        (SELECT COUNT(*) FROM transactions WHERE user_id = ? AND category_id = ?) +
+        (SELECT COUNT(*) FROM recurring_expenses WHERE user_id = ? AND category_id = ?) AS count
     `)
-    .bind(id, id)
+    .bind(userId, id, userId, id)
     .first();
 
   return row?.count ?? 0;
 }
 
-async function getSubcategoryCount(db, id) {
+async function getSubcategoryCount(db, userId, id) {
   const row = await db
-    .prepare("SELECT COUNT(*) AS count FROM categories WHERE parent_id = ?")
-    .bind(id)
+    .prepare("SELECT COUNT(*) AS count FROM categories WHERE user_id = ? AND parent_id = ?")
+    .bind(userId, id)
     .first();
 
   return row?.count ?? 0;
@@ -205,7 +206,7 @@ function assertDefaultCategoryCanBeUpdated(existing, category) {
   }
 }
 
-async function assertCategoryParentIsValid(db, category, id = null) {
+async function assertCategoryParentIsValid(db, userId, category, id = null) {
   if (category.parentId === null) {
     return;
   }
@@ -214,7 +215,7 @@ async function assertCategoryParentIsValid(db, category, id = null) {
     throw badRequest("Category cannot be its own parent");
   }
 
-  const parent = await getCategoryById(db, category.parentId);
+  const parent = await getCategoryById(db, userId, category.parentId);
 
   if (!parent) {
     throw badRequest("Parent category does not exist");
@@ -229,12 +230,12 @@ async function assertCategoryParentIsValid(db, category, id = null) {
   }
 }
 
-async function assertCategoryCanMoveUnderParent(db, id, category) {
+async function assertCategoryCanMoveUnderParent(db, userId, id, category) {
   if (category.parentId === null) {
     return;
   }
 
-  const subcategoryCount = await getSubcategoryCount(db, id);
+  const subcategoryCount = await getSubcategoryCount(db, userId, id);
 
   if (subcategoryCount > 0) {
     throw conflict("Categories with subcategories cannot be moved under another category");
@@ -253,7 +254,7 @@ export function validateCategoryId(input) {
   return validate(idSchema, input);
 }
 
-export async function listCategories(db, query = {}) {
+export async function listCategories(db, userId, query = {}) {
   const nestedCondition = query.includeNested ? "" : "AND c.parent_id IS NULL";
 
   if (query.type) {
@@ -272,7 +273,8 @@ export async function listCategories(db, query = {}) {
           c.updated_at
         FROM categories c
         LEFT JOIN categories p ON p.id = c.parent_id
-        WHERE c.type = ?
+        WHERE c.user_id = ?
+        AND c.type = ?
         ${nestedCondition}
         ORDER BY
           COALESCE(LOWER(p.name), LOWER(c.name)) ASC,
@@ -281,7 +283,7 @@ export async function listCategories(db, query = {}) {
           LOWER(c.name) ASC,
           c.id ASC
       `)
-      .bind(query.type)
+      .bind(userId, query.type)
       .all();
 
     return {
@@ -304,7 +306,7 @@ export async function listCategories(db, query = {}) {
         c.updated_at
       FROM categories c
       LEFT JOIN categories p ON p.id = c.parent_id
-      WHERE 1 = 1
+      WHERE c.user_id = ?
       ${nestedCondition}
       ORDER BY
         c.type ASC,
@@ -314,6 +316,7 @@ export async function listCategories(db, query = {}) {
         LOWER(c.name) ASC,
         c.id ASC
     `)
+    .bind(userId)
     .all();
 
   return {
@@ -321,7 +324,7 @@ export async function listCategories(db, query = {}) {
   };
 }
 
-export async function getCategoryById(db, id) {
+export async function getCategoryById(db, userId, id) {
   const row = await db
     .prepare(`
       SELECT
@@ -337,24 +340,25 @@ export async function getCategoryById(db, id) {
         c.updated_at
       FROM categories c
       LEFT JOIN categories p ON p.id = c.parent_id
-      WHERE c.id = ?
+      WHERE c.user_id = ?
+        AND c.id = ?
     `)
-    .bind(id)
+    .bind(userId, id)
     .first();
 
   return row ? mapCategoryRow(row) : null;
 }
 
-export async function createCategory(db, category) {
-  await assertUniqueCategoryName(db, category.name);
-  await assertCategoryParentIsValid(db, category);
+export async function createCategory(db, userId, category) {
+  await assertUniqueCategoryName(db, userId, category.name);
+  await assertCategoryParentIsValid(db, userId, category);
 
   const result = await db
     .prepare(`
-      INSERT INTO categories (name, type, color, icon, parent_id, is_default)
-      VALUES (?, ?, ?, ?, ?, 0)
+      INSERT INTO categories (user_id, name, type, color, icon, parent_id, is_default)
+      VALUES (?, ?, ?, ?, ?, ?, 0)
     `)
-    .bind(category.name, category.type, category.color, category.icon, category.parentId)
+    .bind(userId, category.name, category.type, category.color, category.icon, category.parentId)
     .run();
 
   const id = result.meta?.last_row_id;
@@ -363,30 +367,30 @@ export async function createCategory(db, category) {
     throw badRequest("Category could not be created");
   }
 
-  return getCategoryById(db, id);
+  return getCategoryById(db, userId, id);
 }
 
-export async function updateCategory(db, id, category) {
-  const existing = await getCategoryById(db, id);
+export async function updateCategory(db, userId, id, category) {
+  const existing = await getCategoryById(db, userId, id);
 
   if (!existing) {
     throw notFound("Category not found");
   }
 
   assertDefaultCategoryCanBeUpdated(existing, category);
-  await assertCategoryParentIsValid(db, category, id);
-  await assertCategoryCanMoveUnderParent(db, id, category);
+  await assertCategoryParentIsValid(db, userId, category, id);
+  await assertCategoryCanMoveUnderParent(db, userId, id, category);
 
   if (existing.type !== category.type) {
-    const usageCount = await getCategoryUsageCount(db, id);
-    const subcategoryCount = await getSubcategoryCount(db, id);
+    const usageCount = await getCategoryUsageCount(db, userId, id);
+    const subcategoryCount = await getSubcategoryCount(db, userId, id);
 
     if (usageCount > 0 || subcategoryCount > 0) {
       throw conflict("Category type cannot be changed while used or while it has subcategories");
     }
   }
 
-  await assertUniqueCategoryName(db, category.name, id);
+  await assertUniqueCategoryName(db, userId, category.name, id);
   await db
     .prepare(`
       UPDATE categories
@@ -397,16 +401,17 @@ export async function updateCategory(db, id, category) {
         icon = ?,
         parent_id = ?,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE user_id = ?
+        AND id = ?
     `)
-    .bind(category.name, category.type, category.color, category.icon, category.parentId, id)
+    .bind(category.name, category.type, category.color, category.icon, category.parentId, userId, id)
     .run();
 
-  return getCategoryById(db, id);
+  return getCategoryById(db, userId, id);
 }
 
-export async function deleteCategory(db, id) {
-  const existing = await getCategoryById(db, id);
+export async function deleteCategory(db, userId, id) {
+  const existing = await getCategoryById(db, userId, id);
 
   if (!existing) {
     throw notFound("Category not found");
@@ -416,8 +421,8 @@ export async function deleteCategory(db, id) {
     throw conflict("Default categories cannot be deleted");
   }
 
-  const usageCount = await getCategoryUsageCount(db, id);
-  const subcategoryCount = await getSubcategoryCount(db, id);
+  const usageCount = await getCategoryUsageCount(db, userId, id);
+  const subcategoryCount = await getSubcategoryCount(db, userId, id);
 
   if (subcategoryCount > 0) {
     throw conflict("Category has subcategories");
@@ -427,7 +432,7 @@ export async function deleteCategory(db, id) {
     throw conflict("Category is used by transactions");
   }
 
-  await db.prepare("DELETE FROM categories WHERE id = ?").bind(id).run();
+  await db.prepare("DELETE FROM categories WHERE user_id = ? AND id = ?").bind(userId, id).run();
 
   return {
     deleted: true,

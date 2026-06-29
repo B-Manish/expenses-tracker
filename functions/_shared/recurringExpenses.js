@@ -238,10 +238,10 @@ export function validateRecurringExpenseId(input) {
   return validate(idSchema, input);
 }
 
-async function assertExpenseCategoryExists(db, categoryId) {
+async function assertExpenseCategoryExists(db, userId, categoryId) {
   const category = await db
-    .prepare("SELECT id, type FROM categories WHERE id = ?")
-    .bind(categoryId)
+    .prepare("SELECT id, type FROM categories WHERE user_id = ? AND id = ?")
+    .bind(userId, categoryId)
     .first();
 
   if (!category) {
@@ -278,7 +278,7 @@ export async function getRecurringExpenseById(db, userId, id) {
 }
 
 export async function createRecurringExpense(db, userId, recurringExpense) {
-  await assertExpenseCategoryExists(db, recurringExpense.categoryId);
+  await assertExpenseCategoryExists(db, userId, recurringExpense.categoryId);
 
   const result = await db
     .prepare(`
@@ -322,7 +322,7 @@ export async function updateRecurringExpense(db, userId, id, recurringExpense) {
     throw notFound("Recurring expense not found");
   }
 
-  await assertExpenseCategoryExists(db, recurringExpense.categoryId);
+  await assertExpenseCategoryExists(db, userId, recurringExpense.categoryId);
   await db
     .prepare(`
       UPDATE recurring_expenses

@@ -5,7 +5,6 @@ import {
   clearPasswordResetVerifyFailures,
   createResetPasswordToken,
   consumePasswordResetCode,
-  getPasswordResetRecipient,
   getPasswordResetVerifyThrottleStatus,
   isPasswordResetConfigured,
   normalizeResetCode,
@@ -42,15 +41,22 @@ export async function onRequest(context) {
   }
 
   const code = normalizeResetCode(bodyResult.data?.code);
+  const email = typeof bodyResult.data?.email === "string"
+    ? bodyResult.data.email.trim().toLowerCase()
+    : "";
 
   if (!code) {
     return failure("Enter the 6-digit verification code", 400);
   }
 
+  if (!email) {
+    return failure("Email is required", 400);
+  }
+
   let verified;
 
   try {
-    verified = await consumePasswordResetCode(env, getPasswordResetRecipient(env), code);
+    verified = await consumePasswordResetCode(env, email, code);
   } catch {
     return failure("Password reset is unavailable", 500);
   }
@@ -70,7 +76,7 @@ export async function onRequest(context) {
   clearPasswordResetVerifyFailures(request);
 
   try {
-    const resetSession = await createResetPasswordToken(env, getPasswordResetRecipient(env));
+    const resetSession = await createResetPasswordToken(env, email);
 
     return success({
       resetToken: resetSession.token,

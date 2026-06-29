@@ -1,4 +1,5 @@
 import { verifySession } from "../../_shared/auth.js";
+import { requireDb } from "../../_shared/db.js";
 import { failure, methodNotAllowed, success } from "../../_shared/json.js";
 
 export async function onRequest(context) {
@@ -11,7 +12,21 @@ export async function onRequest(context) {
   const session = await verifySession(request, env);
 
   if (session.authenticated) {
-    return success({ authenticated: true });
+    const user = await requireDb(context)
+      .prepare("SELECT email, full_name, username FROM users WHERE id = ?")
+      .bind(session.session.userId)
+      .first();
+
+    return success({
+      authenticated: true,
+      user: user
+        ? {
+            email: user.email,
+            fullName: user.full_name,
+            username: user.username,
+          }
+        : null,
+    });
   }
 
   if (session.status === 500) {
@@ -20,4 +35,3 @@ export async function onRequest(context) {
 
   return failure("Authentication required", 401);
 }
-

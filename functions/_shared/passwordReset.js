@@ -108,9 +108,7 @@ export function getPasswordResetRecipient(env) {
 
 export function isPasswordResetConfigured(env) {
   return Boolean(
-    env?.APP_PASSWORD &&
-      typeof env.APP_PASSWORD === "string" &&
-      env?.SESSION_SECRET &&
+    env?.SESSION_SECRET &&
       typeof env.SESSION_SECRET === "string",
   );
 }
@@ -423,6 +421,13 @@ export async function consumeResetPasswordToken(env, token, now = Math.floor(Dat
 }
 
 export async function sendPasswordResetCode(env, email, code) {
+  if (env?.EMAIL_DEV_SHOW_CODES === "true") {
+    return {
+      ok: true,
+      devCode: code,
+    };
+  }
+
   const configStatus = getPasswordResetEmailConfigStatus(env);
 
   if (!configStatus.configured) {
@@ -450,7 +455,7 @@ export async function sendPasswordResetCode(env, email, code) {
       ].join("\n\n"),
       html: [
         "<p>Your Expense Tracker verification code is:</p>",
-        `<p style="font-size: 28px; font-weight: 700; letter-spacing: 0.18em;">${code}</p>`,
+        `<p style="font-size: 28px; font-weight: 700;">${code}</p>`,
         `<p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
         "<p>If you did not request this, you can ignore this email.</p>",
       ].join(""),

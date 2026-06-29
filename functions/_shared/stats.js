@@ -121,10 +121,10 @@ function assertRangeOrder(range) {
   }
 }
 
-async function getWeekStartDay(db) {
+async function getWeekStartDay(db, userId) {
   const row = await db
-    .prepare("SELECT value FROM settings WHERE key = ?")
-    .bind("week_start_day")
+    .prepare("SELECT value FROM settings WHERE user_id = ? AND key = ?")
+    .bind(userId, "week_start_day")
     .first();
   const value = typeof row?.value === "string"
     ? row.value.trim().toUpperCase()
@@ -133,15 +133,16 @@ async function getWeekStartDay(db) {
   return VALID_WEEK_START_DAYS.has(value) ? value : DEFAULT_WEEK_START_DAY;
 }
 
-async function sumExpensesForRange(db, range) {
+async function sumExpensesForRange(db, userId, range) {
   const row = await db
     .prepare(`
       SELECT COALESCE(SUM(amount_paise), 0) AS total_paise
       FROM transactions
-      WHERE type = 'EXPENSE'
+      WHERE user_id = ?
+        AND type = 'EXPENSE'
         AND transaction_date BETWEEN ? AND ?
     `)
-    .bind(range.from, range.to)
+    .bind(userId, range.from, range.to)
     .first();
 
   return toInteger(row?.total_paise);
@@ -220,7 +221,7 @@ function sumRecurringOccurrences(recurringExpenses, range) {
     .reduce((total, expense) => total + expense.amountPaise, 0);
 }
 
-async function getSelectedPeriodTotals(db, range) {
+async function getSelectedPeriodTotals(db, userId, range) {
   const row = await db
     .prepare(`
       SELECT
@@ -230,9 +231,10 @@ async function getSelectedPeriodTotals(db, range) {
           AS total_expense_paise,
         COUNT(*) AS transaction_count
       FROM transactions
-      WHERE transaction_date BETWEEN ? AND ?
+      WHERE user_id = ?
+        AND transaction_date BETWEEN ? AND ?
     `)
-    .bind(range.from, range.to)
+    .bind(userId, range.from, range.to)
     .first();
   const totalIncomePaise = toInteger(row?.total_income_paise);
   const totalExpensePaise = toInteger(row?.total_expense_paise);
@@ -245,7 +247,7 @@ async function getSelectedPeriodTotals(db, range) {
   };
 }
 
-async function getBiggestExpense(db, range) {
+async function getBiggestExpense(db, userId, range) {
   const row = await db
     .prepare(`
       SELECT
@@ -259,12 +261,13 @@ async function getBiggestExpense(db, range) {
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
       LEFT JOIN categories pc ON pc.id = c.parent_id
-      WHERE t.type = 'EXPENSE'
+      WHERE t.user_id = ?
+        AND t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
       ORDER BY t.amount_paise DESC, t.transaction_date DESC, t.transaction_time DESC, t.created_at DESC, t.id DESC
       LIMIT 1
     `)
-    .bind(range.from, range.to)
+    .bind(userId, range.from, range.to)
     .first();
 
   if (!row) {
@@ -306,7 +309,7 @@ function getBiggestRecurringExpense(recurringExpenses, range) {
   };
 }
 
-async function getMostUsedCategory(db, range) {
+async function getMostUsedCategory(db, userId, range) {
   const row = await db
     .prepare(`
       SELECT
@@ -320,13 +323,14 @@ async function getMostUsedCategory(db, range) {
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
       LEFT JOIN categories pc ON pc.id = c.parent_id
-      WHERE t.type = 'EXPENSE'
+      WHERE t.user_id = ?
+        AND t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
       GROUP BY c.id, c.name, pc.name, c.color
       ORDER BY count DESC, SUM(t.amount_paise) DESC, category ASC
       LIMIT 1
     `)
-    .bind(range.from, range.to)
+    .bind(userId, range.from, range.to)
     .first();
 
   if (!row) {
@@ -365,7 +369,7 @@ function getMostUsedRecurringCategory(recurringExpenses, range) {
     ))[0] || null;
 }
 
-async function getCategoryBreakdown(db, range) {
+async function getCategoryBreakdown(db, userId, range) {
   const rows = await db
     .prepare(`
       SELECT
@@ -379,12 +383,13 @@ async function getCategoryBreakdown(db, range) {
       FROM transactions t
       LEFT JOIN categories c ON c.id = t.category_id
       LEFT JOIN categories pc ON pc.id = c.parent_id
-      WHERE t.type = 'EXPENSE'
+      WHERE t.user_id = ?
+        AND t.type = 'EXPENSE'
         AND t.transaction_date BETWEEN ? AND ?
       GROUP BY c.id, c.name, pc.name, c.color
       ORDER BY amount_paise DESC, category ASC
     `)
-    .bind(range.from, range.to)
+    .bind(userId, range.from, range.to)
     .all();
 
   return (rows.results || []).map((row) => ({
@@ -418,19 +423,20 @@ function mergeRecurringCategoryBreakdown(categoryBreakdown, recurringExpenses, r
     ));
 }
 
-async function getDailyTrend(db, range) {
+async function getDailyTrend(db, userId, range) {
   const rows = await db
     .prepare(`
       SELECT
         transaction_date AS date,
         COALESCE(SUM(amount_paise), 0) AS amount_paise
       FROM transactions
-      WHERE type = 'EXPENSE'
+      WHERE user_id = ?
+        AND type = 'EXPENSE'
         AND transaction_date BETWEEN ? AND ?
       GROUP BY transaction_date
       ORDER BY transaction_date ASC
     `)
-    .bind(range.from, range.to)
+    .bind(userId, range.from, range.to)
     .all();
   const amountByDate = new Map(
     (rows.results || []).map((row) => [row.date, toInteger(row.amount_paise)]),
@@ -462,19 +468,20 @@ function mergeRecurringDailyTrend(dailyTrend, recurringExpenses, range) {
   }));
 }
 
-async function getMonthlyTrend(db, year) {
+async function getMonthlyTrend(db, userId, year) {
   const rows = await db
     .prepare(`
       SELECT
         SUBSTR(transaction_date, 1, 7) AS month,
         COALESCE(SUM(amount_paise), 0) AS amount_paise
       FROM transactions
-      WHERE type = 'EXPENSE'
+      WHERE user_id = ?
+        AND type = 'EXPENSE'
         AND transaction_date BETWEEN ? AND ?
       GROUP BY SUBSTR(transaction_date, 1, 7)
       ORDER BY month ASC
     `)
-    .bind(`${year}-01-01`, `${year}-12-31`)
+    .bind(userId, `${year}-01-01`, `${year}-12-31`)
     .all();
   const amountByMonth = new Map(
     (rows.results || []).map((row) => [row.month, toInteger(row.amount_paise)]),
@@ -524,7 +531,7 @@ function mapRecentTransaction(row) {
   };
 }
 
-async function getRecentTransactions(db) {
+async function getRecentTransactions(db, userId) {
   const rows = await db
     .prepare(`
       SELECT
@@ -548,10 +555,11 @@ async function getRecentTransactions(db) {
       LEFT JOIN categories c ON c.id = t.category_id
       LEFT JOIN categories pc ON pc.id = c.parent_id
       LEFT JOIN payment_methods pm ON pm.id = t.payment_method_id
+      WHERE t.user_id = ?
       ORDER BY t.transaction_date DESC, t.transaction_time DESC, t.created_at DESC, t.id DESC
       LIMIT ?
     `)
-    .bind(RECENT_TRANSACTION_LIMIT)
+    .bind(userId, RECENT_TRANSACTION_LIMIT)
     .all();
 
   return (rows.results || []).map(mapRecentTransaction);
@@ -562,10 +570,10 @@ export function validateStatsQuery(input) {
 }
 
 export async function getDashboardStats(db, query, options = {}) {
-  const userId = options.userId ?? "personal";
+  const userId = options.userId ?? "phone:9949055750";
   const now = options.now ?? new Date();
   const today = todayInKolkata(now);
-  const weekStartDay = await getWeekStartDay(db);
+  const weekStartDay = await getWeekStartDay(db, userId);
   const todayRange = {
     from: today,
     to: today,
@@ -585,25 +593,25 @@ export async function getDashboardStats(db, query, options = {}) {
     (total, expense) => total + expense.amountPaise,
     0,
   );
-  const todaySpentPaise = await sumExpensesForRange(db, todayRange) +
+  const todaySpentPaise = await sumExpensesForRange(db, userId, todayRange) +
     sumRecurringOccurrences(recurringExpenses, todayRange);
-  const weekSpentPaise = await sumExpensesForRange(db, weekRange) +
+  const weekSpentPaise = await sumExpensesForRange(db, userId, weekRange) +
     sumRecurringOccurrences(recurringExpenses, weekRange);
-  const monthSpentPaise = await sumExpensesForRange(db, monthRange) +
+  const monthSpentPaise = await sumExpensesForRange(db, userId, monthRange) +
     sumRecurringOccurrences(recurringExpenses, monthRange);
-  const totals = await getSelectedPeriodTotals(db, selectedRange);
+  const totals = await getSelectedPeriodTotals(db, userId, selectedRange);
   const selectedRecurringPaise = recurringOccurrences
     .reduce((total, expense) => total + expense.amountPaise, 0);
   const totalExpensePaise = totals.totalExpensePaise + selectedRecurringPaise;
   const dayCount = Math.max(countInclusiveDays(selectedRange.from, selectedRange.to), 1);
   const biggestExpense = [
-    await getBiggestExpense(db, selectedRange),
+    await getBiggestExpense(db, userId, selectedRange),
     getBiggestRecurringExpense(recurringExpenses, selectedRange),
   ]
     .filter(Boolean)
     .sort((first, second) => second.amountPaise - first.amountPaise)[0] || null;
   const mostUsedCategory = [
-    await getMostUsedCategory(db, selectedRange),
+    await getMostUsedCategory(db, userId, selectedRange),
     getMostUsedRecurringCategory(recurringExpenses, selectedRange),
   ]
     .filter(Boolean)
@@ -612,20 +620,20 @@ export async function getDashboardStats(db, query, options = {}) {
       first.category.localeCompare(second.category)
     ))[0] || null;
   const categoryBreakdown = mergeRecurringCategoryBreakdown(
-    await getCategoryBreakdown(db, selectedRange),
+    await getCategoryBreakdown(db, userId, selectedRange),
     recurringExpenses,
     selectedRange,
   );
   const dailyTrend = mergeRecurringDailyTrend(
-    await getDailyTrend(db, dailyTrendRange),
+    await getDailyTrend(db, userId, dailyTrendRange),
     recurringExpenses,
     dailyTrendRange,
   );
   const monthlyTrend = mergeRecurringMonthlyTrend(
-    await getMonthlyTrend(db, currentYear),
+    await getMonthlyTrend(db, userId, currentYear),
     recurringExpenses,
   );
-  const recentTransactions = await getRecentTransactions(db);
+  const recentTransactions = await getRecentTransactions(db, userId);
 
   return {
     todaySpentPaise,

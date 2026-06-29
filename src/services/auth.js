@@ -70,8 +70,8 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = useCallback(async (password) => {
-    const session = await api.login(password);
+  const login = useCallback(async (email, password) => {
+    const session = await api.login(email, password);
 
     setState({
       status: session?.authenticated ? "authenticated" : "unauthenticated",
@@ -81,9 +81,22 @@ export function AuthProvider({ children }) {
     return session;
   }, []);
 
-  const requestPasswordReset = useCallback(() => api.requestPasswordReset(), []);
+  const requestSignupCode = useCallback((payload) => api.requestSignupCode(payload), []);
 
-  const verifyPasswordReset = useCallback((code) => api.verifyPasswordReset(code), []);
+  const verifySignupCode = useCallback(async (email, code) => {
+    const session = await api.verifySignupCode(email, code);
+
+    setState({
+      status: session?.authenticated ? "authenticated" : "unauthenticated",
+      error: null,
+    });
+
+    return session;
+  }, []);
+
+  const requestPasswordReset = useCallback((email) => api.requestPasswordReset(email), []);
+
+  const verifyPasswordReset = useCallback((email, code) => api.verifyPasswordReset(email, code), []);
 
   const completePasswordReset = useCallback((token, password) => (
     api.completePasswordReset(token, password)
@@ -113,18 +126,22 @@ export function AuthProvider({ children }) {
     logout,
     completePasswordReset,
     requestPasswordReset,
+    requestSignupCode,
     refreshAuth,
     status: state.status,
     verifyPasswordReset,
+    verifySignupCode,
   }), [
     completePasswordReset,
     login,
     logout,
     requestPasswordReset,
+    requestSignupCode,
     refreshAuth,
     state.error,
     state.status,
     verifyPasswordReset,
+    verifySignupCode,
   ]);
 
   return createElement(AuthContext.Provider, { value }, children);

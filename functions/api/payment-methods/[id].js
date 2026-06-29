@@ -1,4 +1,4 @@
-import { requireAuth } from "../../_shared/auth.js";
+import { getSessionUserId, requireAuth } from "../../_shared/auth.js";
 import { requireDb } from "../../_shared/db.js";
 import { createApiHandler, parseJsonBody } from "../../_shared/http.js";
 import { success } from "../../_shared/json.js";
@@ -12,7 +12,7 @@ import {
 async function requireAuthenticatedRequest(context) {
   const auth = await requireAuth(context);
 
-  return auth.authenticated ? null : auth.response;
+  return auth.authenticated ? auth : { response: auth.response };
 }
 
 function getValidatedId(context) {
@@ -21,10 +21,10 @@ function getValidatedId(context) {
 
 export const onRequest = createApiHandler({
   async PUT(context) {
-    const authResponse = await requireAuthenticatedRequest(context);
+    const auth = await requireAuthenticatedRequest(context);
 
-    if (authResponse) {
-      return authResponse;
+    if (auth.response) {
+      return auth.response;
     }
 
     const idValidation = getValidatedId(context);
@@ -42,15 +42,15 @@ export const onRequest = createApiHandler({
     }
 
     return success(
-      await updatePaymentMethod(db, idValidation.data, bodyValidation.data),
+      await updatePaymentMethod(db, getSessionUserId(auth.session), idValidation.data, bodyValidation.data),
     );
   },
 
   async DELETE(context) {
-    const authResponse = await requireAuthenticatedRequest(context);
+    const auth = await requireAuthenticatedRequest(context);
 
-    if (authResponse) {
-      return authResponse;
+    if (auth.response) {
+      return auth.response;
     }
 
     const idValidation = getValidatedId(context);
@@ -60,7 +60,7 @@ export const onRequest = createApiHandler({
     }
 
     return success(
-      await deletePaymentMethod(requireDb(context), idValidation.data),
+      await deletePaymentMethod(requireDb(context), getSessionUserId(auth.session), idValidation.data),
     );
   },
 });

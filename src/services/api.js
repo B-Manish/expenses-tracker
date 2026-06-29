@@ -114,9 +114,11 @@ function jsonRequest(path, method, payload) {
 }
 
 export const api = {
-  login: (password) => jsonRequest("/api/auth/login", "POST", { password }),
-  requestPasswordReset: () => jsonRequest("/api/auth/password-reset/request", "POST", {}),
-  verifyPasswordReset: (code) => jsonRequest("/api/auth/password-reset/verify", "POST", { code }),
+  login: (email, password) => jsonRequest("/api/auth/login", "POST", { email, password }),
+  requestSignupCode: (payload) => jsonRequest("/api/auth/signup/request", "POST", payload),
+  verifySignupCode: (email, code) => jsonRequest("/api/auth/signup/verify", "POST", { email, code }),
+  requestPasswordReset: (email) => jsonRequest("/api/auth/password-reset/request", "POST", { email }),
+  verifyPasswordReset: (email, code) => jsonRequest("/api/auth/password-reset/verify", "POST", { email, code }),
   completePasswordReset: (token, password) => jsonRequest("/api/auth/password-reset/complete", "POST", { token, password }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
   me: () => request("/api/auth/me"),

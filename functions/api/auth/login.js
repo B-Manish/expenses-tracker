@@ -1,20 +1,16 @@
 import { createSessionCookie, isAuthConfigured } from "../../_shared/auth.js";
-import { verifyAppPassword } from "../../_shared/appPassword.js";
 import { failure, methodNotAllowed, success } from "../../_shared/json.js";
 import { readJsonBody } from "../../_shared/http.js";
+import { ApiError } from "../../_shared/errors.js";
+import {
+  parsePasswordLoginPayload,
+  verifyPasswordLogin,
+} from "../../_shared/emailAuth.js";
 import {
   clearFailedLogins,
   getThrottleStatus,
   recordFailedLogin,
 } from "../../_shared/security.js";
-
-function getPasswordFromBody(body) {
-  if (!body || typeof body.password !== "string") {
-    return null;
-  }
-
-  return body.password.trim().length > 0 ? body.password : null;
-}
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -45,15 +41,21 @@ export async function onRequest(context) {
     return bodyResult.response;
   }
 
-  const password = getPasswordFromBody(bodyResult.data);
+  let validation;
 
-  if (!password) {
-    return failure("Password is required", 400);
+  try {
+    validation = parsePasswordLoginPayload(bodyResult.data);
+  } catch (error) {
+    return failure(
+      error instanceof ApiError ? error.publicMessage : "Invalid login details",
+      error instanceof ApiError ? error.status : 400,
+    );
   }
 
-  const passwordMatches = await verifyAppPassword(env.DB, env, password);
-
-  if (!passwordMatches) {
+  let user;
+  try {
+    user = await verifyPasswordLogin(env.DB, env, validation);
+  } catch {
     const failureStatus = recordFailedLogin(request);
 
     if (failureStatus.blocked) {
@@ -62,16 +64,23 @@ export async function onRequest(context) {
       });
     }
 
-    return failure("Invalid password", 401);
+    return failure("Invalid email or password", 401);
   }
 
   clearFailedLogins(request);
 
   try {
-    const sessionCookie = await createSessionCookie(request, env);
+    const sessionCookie = await createSessionCookie(request, env, user.id);
 
     return success(
-      { authenticated: true },
+      {
+        authenticated: true,
+        user: {
+          email: user.email,
+          fullName: user.full_name,
+          username: user.username,
+        },
+      },
       200,
       {
         "set-cookie": sessionCookie,
