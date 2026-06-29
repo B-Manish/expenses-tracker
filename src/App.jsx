@@ -12,6 +12,7 @@ import Login from "./pages/Login.jsx";
 import PaymentMethods from "./pages/PaymentMethods.jsx";
 import RecurringExpenses from "./pages/RecurringExpenses.jsx";
 import Settings from "./pages/Settings.jsx";
+import SmsImports from "./pages/SmsImports.jsx";
 import { AuthProvider, useAuth } from "./services/auth.js";
 
 function ProtectedRoute() {
@@ -86,6 +87,7 @@ function AppRoutes() {
           <Route path="/expenses/new" element={<AddExpense />} />
           <Route path="/expenses/:id/edit" element={<EditExpense />} />
           <Route path="/recurring-expenses" element={<RecurringExpenses />} />
+          <Route path="/sms-imports" element={<SmsImports />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/payment-methods" element={<PaymentMethods />} />
           <Route path="/settings" element={<Settings />} />

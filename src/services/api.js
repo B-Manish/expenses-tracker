@@ -134,6 +134,9 @@ export const api = {
   updateExpense: (id, payload) => jsonRequest(`/api/expenses/${id}`, "PUT", payload),
   deleteExpense: (id) => request(`/api/expenses/${id}`, { method: "DELETE" }),
 
+  getSmsImports: (query) => request(withQuery("/api/sms-imports", query)),
+  confirmSmsImport: (id) => jsonRequest(`/api/sms-imports/${id}/confirm`, "POST", {}),
+
   getRecurringExpenses: () => request("/api/recurring-expenses"),
   getRecurringExpense: (id) => request(`/api/recurring-expenses/${id}`),
   createRecurringExpense: (payload) => jsonRequest("/api/recurring-expenses", "POST", payload),
