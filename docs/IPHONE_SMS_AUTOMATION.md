@@ -1,19 +1,8 @@
 # iPhone SMS Automation
 
-The personal automation must filter messages before running the API request.
-This keeps unrelated messages away from the transaction parser.
-
-## Filter
-
-In the message-received automation, match the original message body against:
-
-```regex
-(?i)\b(?:debit(?:ed)?|credit(?:ed)?)\b
-```
-
-Run **Get Contents of URL** only when **Match Text** returns a match. Leave the
-otherwise branch empty. The expression is case-insensitive and matches the
-complete words `debit`, `debited`, `credit`, and `credited`.
+The personal automation can forward any non-empty message to the API. A
+message without a recognizable debit or credit direction is accepted and
+defaults to an expense for later review.
 
 ## Request
 
@@ -36,19 +25,5 @@ The equivalent request shape is:
 {
   "sender": "HDFCBK",
   "message": "Rs.450.00 debited from A/c XX1234 via UPI to SWIGGY. Ref 123456789012."
-}
-```
-
-The endpoint also checks the same keywords. If an unrelated message is sent
-accidentally, it returns HTTP `200` with:
-
-```json
-{
-  "success": true,
-  "data": {
-    "accepted": false,
-    "skipped": true,
-    "reason": "no_transaction_keyword"
-  }
 }
 ```

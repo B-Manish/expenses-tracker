@@ -144,7 +144,7 @@ function findDirection(message) {
     /\b(?:credited|credit|received|deposited|refund(?:ed)?)\b/i.exec(message);
 
   if (!debit && !credit) {
-    throw badRequest("SMS does not identify a debit or credit transaction");
+    return "DEBIT";
   }
 
   if (debit && credit) {

@@ -285,15 +285,15 @@ test("parses comma-separated credit amounts and income metadata", () => {
   assert.equal(parsed.merchant, "ACME PAYROLL");
 });
 
-test("rejects messages that do not describe a supported transaction", () => {
-  assert.throws(
-    () =>
-      parseBankSms({
-        sender: "BANK",
-        message: "Your monthly statement is now available.",
-      }),
-    /debit or credit transaction/,
-  );
+test("defaults messages without a direction to an expense", () => {
+  const parsed = parseBankSms({
+    sender: "BANK",
+    message: "Your monthly statement is now available.",
+  });
+
+  assert.equal(parsed.direction, "DEBIT");
+  assert.equal(parsed.suggestedType, "EXPENSE");
+  assert.equal(parsed.amountPaise, null);
 });
 
 test("accepts a transaction keyword when no supported INR amount is present", () => {
@@ -446,25 +446,24 @@ test("endpoint authenticates, inserts once, and reports replayed messages", asyn
   assert.equal(db.transactions.length, 1);
 });
 
-test("endpoint safely skips messages without a transaction keyword", async () => {
+test("endpoint accepts messages without a transaction keyword", async () => {
+  const db = new MemorySmsDb();
   const response = await handleSmsIngest({
     request: smsRequest({
       sender: "BANK",
       message: "Your monthly statement is now available.",
     }),
-    env: { SMS_INGEST_TOKEN: TOKEN },
+    env: { DB: db, SMS_INGEST_TOKEN: TOKEN },
   });
   const body = await response.json();
 
-  assert.equal(response.status, 200);
-  assert.deepEqual(body, {
-    success: true,
-    data: {
-      accepted: false,
-      skipped: true,
-      reason: "no_transaction_keyword",
-    },
-  });
+  assert.equal(response.status, 202);
+  assert.equal(body.success, true);
+  assert.equal(body.data.accepted, true);
+  assert.equal(body.data.import.direction, "DEBIT");
+  assert.equal(body.data.import.suggestedType, "EXPENSE");
+  assert.equal(db.rows.length, 1);
+  assert.equal(db.transactions.length, 1);
 });
 
 test("endpoint accepts keyword messages without a supported INR amount", async () => {

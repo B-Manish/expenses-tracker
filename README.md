@@ -74,14 +74,12 @@ complete, unedited SMS body is retained in the `raw_message` column. The
 request contains only `sender` and `message`; the server records its own
 arrival time.
 
-Configure the Shortcut to call the endpoint only when the original SMS body
-contains `debit`, `debited`, `credit`, or `credited`. Pass the message sender
-and the complete, unedited message body as variables; do not use sample text in
-the request. See [iPhone SMS automation setup](docs/IPHONE_SMS_AUTOMATION.md)
-for the filter and request details. As a defensive fallback, the endpoint
-returns a successful `skipped` result if a non-transaction message reaches it.
-Once a required keyword is present, a recognizable INR amount is optional; an
-unrecognized or absent amount is stored as `null` for later review.
+Pass the message sender and the complete, unedited message body as variables;
+do not use sample text in the request. See
+[iPhone SMS automation setup](docs/IPHONE_SMS_AUTOMATION.md) for the request
+details. The endpoint accepts any non-empty message. When it cannot infer a
+transaction direction, it defaults to an expense; an unrecognized or absent
+INR amount is stored as `null` for later review.
 
 SMS transaction titles use the parsed merchant/source when available. If no
 merchant can be identified, the title is `SMS transaction from <sender>`.
