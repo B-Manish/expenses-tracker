@@ -55,12 +55,12 @@ function menuClassName({ isActive }) {
 
 function BrandLockup() {
   return (
-    <Link className="brand-lockup" to="/" aria-label="Expense Tracker dashboard">
+    <Link className="brand-lockup" to="/" aria-label="Cashly dashboard">
       <span className="brand-mark" aria-hidden="true">
         <WalletCards size={20} />
       </span>
       <span>
-        <span className="brand-name">Expense Tracker</span>
+        <span className="brand-name">Cashly</span>
         <span className="brand-context">Personal finance</span>
       </span>
     </Link>

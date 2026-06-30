@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import LoginForm from "../components/LoginForm.jsx";
 import { useAuth } from "../services/auth.js";
 
@@ -14,6 +14,8 @@ export default function Login() {
     verifySignupCode,
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const notice = location.state?.notice || "";
 
   async function handleAuthenticated() {
     navigate("/", { replace: true });
@@ -25,6 +27,15 @@ export default function Login() {
         className="flex min-h-dvh w-full max-w-[420px] flex-col bg-white px-6 py-9 dark:bg-slate-900 sm:min-h-[640px] sm:rounded-[28px] sm:px-8 sm:shadow-xl sm:ring-1 sm:ring-slate-200 sm:dark:ring-slate-800"
         aria-label="Cashly account"
       >
+        {notice ? (
+          <p
+            className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            role="status"
+          >
+            {notice}
+          </p>
+        ) : null}
+
         <LoginForm
           onAuthenticated={handleAuthenticated}
           onLogin={login}

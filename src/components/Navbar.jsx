@@ -35,7 +35,7 @@ export default function Navbar({ isLoggingOut = false, onLogout }) {
       <div className="brand-lockup">
         <div className="brand-mark" aria-hidden="true">IN</div>
         <div>
-          <p className="brand-name">Expense Tracker</p>
+          <p className="brand-name">Cashly</p>
           <p className="brand-context">Personal finance</p>
         </div>
       </div>

@@ -63,7 +63,7 @@ function NotFoundPage() {
     <section className="page-section narrow-section">
       <EmptyState
         title="Page not found"
-        message="That route does not exist in this expense tracker."
+        message="That route does not exist in Cashly."
         action={
           <Link className="button primary-button" to="/">
             Go to dashboard

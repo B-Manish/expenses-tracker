@@ -237,14 +237,14 @@ async function sendVerificationCode(env, email, code) {
     body: JSON.stringify({
       from: env.RESET_EMAIL_FROM.trim(),
       to: [email],
-      subject: "Expense Tracker verification code",
+      subject: "Cashly verification code",
       text: [
-        `Your Expense Tracker verification code is ${code}.`,
+        `Your Cashly verification code is ${code}.`,
         `It expires in ${CODE_TTL_MINUTES} minutes.`,
         "If you did not request this, you can ignore this email.",
       ].join("\n\n"),
       html: [
-        "<p>Your Expense Tracker verification code is:</p>",
+        "<p>Your Cashly verification code is:</p>",
         `<p style="font-size: 28px; font-weight: 700;">${code}</p>`,
         `<p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
         "<p>If you did not request this, you can ignore this email.</p>",
