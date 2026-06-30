@@ -1,14 +1,10 @@
 import {
   Clock,
-  Download,
   IndianRupee,
-  Landmark,
   LogOut,
   Moon,
   Save,
   Settings as SettingsIcon,
-  ShieldCheck,
-  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +15,7 @@ import SelectControl from "../components/SelectControl.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
 import { useAuth } from "../services/auth.js";
+import { setStoredTheme } from "../utils/theme.js";
 import {
   getErrorMessage,
   getFirstValidationError,
@@ -182,6 +179,11 @@ export default function Settings() {
       ...current,
       [name]: value,
     }));
+
+    if (name === "theme") {
+      setStoredTheme(value);
+    }
+
     setSaveState({
       error: "",
       message: "",
@@ -375,57 +377,6 @@ export default function Settings() {
           </div>
         </form>
       </section>
-
-      <div className="content-grid two-column-grid">
-        <section className="panel placeholder-panel" aria-labelledby="export-title">
-          <div className="placeholder-icon" aria-hidden="true">
-            <Download size={20} />
-          </div>
-          <div>
-            <p className="eyebrow">Future feature</p>
-            <h2 id="export-title">Data export</h2>
-            <p>Export is not implemented yet. This control is disabled and does not download fake data.</p>
-          </div>
-          <Button type="button" disabled variant="outline">
-            Export unavailable
-          </Button>
-        </section>
-
-        <section className="panel placeholder-panel danger-panel" aria-labelledby="delete-data-title">
-          <div className="placeholder-icon danger-placeholder-icon" aria-hidden="true">
-            <Trash2 size={20} />
-          </div>
-          <div>
-            <p className="eyebrow">Future feature</p>
-            <h2 id="delete-data-title">Delete all data</h2>
-            <p>Bulk deletion is not implemented in the MVP. This disabled control does not remove any data.</p>
-          </div>
-          <Button type="button" disabled variant="destructive">
-            Delete unavailable
-          </Button>
-        </section>
-
-        <section className="panel placeholder-panel wide-panel" aria-labelledby="bank-placeholder-title">
-          <div className="placeholder-icon success-placeholder-icon" aria-hidden="true">
-            <Landmark size={20} />
-          </div>
-          <div>
-            <p className="eyebrow">Future module</p>
-            <h2 id="bank-placeholder-title">Bank connection</h2>
-            <p>
-              Status: <strong>Not connected</strong>. Future bank support should use a consent-based Account
-              Aggregator-style flow. No bank credential fields are present in this MVP.
-            </p>
-          </div>
-          <div className="placeholder-status">
-            <ShieldCheck size={18} aria-hidden="true" />
-            <span>Manual tracking only</span>
-          </div>
-          <Button type="button" disabled variant="outline">
-            Connect unavailable
-          </Button>
-        </section>
-      </div>
 
       <section className="panel danger-panel narrow-section" aria-labelledby="session-title">
         <div>

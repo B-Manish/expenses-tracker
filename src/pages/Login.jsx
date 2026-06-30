@@ -1,6 +1,4 @@
-import { ShieldCheck } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
-import ErrorState from "../components/ErrorState.jsx";
+import { useNavigate } from "react-router-dom";
 import LoginForm from "../components/LoginForm.jsx";
 import { useAuth } from "../services/auth.js";
 
@@ -9,45 +7,24 @@ export default function Login() {
     error,
     login,
     completePasswordReset,
-    refreshAuth,
     requestPasswordReset,
     requestSignupCode,
     status,
     verifyPasswordReset,
     verifySignupCode,
   } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
-  const notice = location.state?.notice;
 
   async function handleAuthenticated() {
     navigate("/", { replace: true });
   }
 
   return (
-    <main className="login-shell">
-      <section className="login-panel" aria-labelledby="login-title">
-        <div className="login-heading">
-          <div className="login-icon" aria-hidden="true">
-            <ShieldCheck size={28} />
-          </div>
-          <div>
-            <p className="eyebrow">Private tracker</p>
-            <h1 id="login-title">Expense Tracker</h1>
-          </div>
-        </div>
-
-        {status === "error" && error ? (
-          <ErrorState
-            title="Session unavailable"
-            message={error}
-            actionLabel="Check again"
-            onRetry={refreshAuth}
-          />
-        ) : null}
-
-        {notice ? <p className="notice-message">{notice}</p> : null}
-
+    <main className="flex min-h-dvh w-full justify-center overflow-y-auto bg-white dark:bg-slate-900 sm:items-center sm:bg-slate-100 sm:dark:bg-slate-950 sm:p-4">
+      <section
+        className="flex min-h-dvh w-full max-w-[420px] flex-col bg-white px-6 py-9 dark:bg-slate-900 sm:min-h-[640px] sm:rounded-[28px] sm:px-8 sm:shadow-xl sm:ring-1 sm:ring-slate-200 sm:dark:ring-slate-800"
+        aria-label="Cashly account"
+      >
         <LoginForm
           onAuthenticated={handleAuthenticated}
           onLogin={login}
@@ -56,6 +33,7 @@ export default function Login() {
           onRequestSignupCode={requestSignupCode}
           onVerifyReset={verifyPasswordReset}
           onVerifySignupCode={verifySignupCode}
+          sessionError={status === "error" ? error : ""}
         />
       </section>
     </main>

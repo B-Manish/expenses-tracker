@@ -7,9 +7,7 @@ import {
   Landmark,
   PiggyBank,
   ReceiptText,
-  RotateCcw,
   Scale,
-  Search,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -27,10 +25,9 @@ import PageHeader from "../components/PageHeader.jsx";
 import StatCard from "../components/StatCard.jsx";
 import TrendChart from "../components/TrendChart.jsx";
 import { Button } from "../components/ui/button.jsx";
-import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
 import { formatCurrencyFromPaise, formatSignedCurrencyFromPaise } from "../utils/currency.js";
-import { formatDisplayDateTime, isValidDateInput } from "../utils/dateUtils.js";
+import { formatDisplayDateTime } from "../utils/dateUtils.js";
 import { getErrorMessage } from "../utils/validation.js";
 
 function toAmount(value) {
@@ -70,97 +67,6 @@ function selectedPeriodLabel(range) {
   }
 
   return "Current month";
-}
-
-function validateRange(draft) {
-  if (draft.from && !isValidDateInput(draft.from)) {
-    return "Enter a valid from date.";
-  }
-
-  if (draft.to && !isValidDateInput(draft.to)) {
-    return "Enter a valid to date.";
-  }
-
-  if (draft.from && draft.to && draft.from > draft.to) {
-    return "From date must be before or equal to to date.";
-  }
-
-  return "";
-}
-
-function DateRangeSelector({ isLoading, onApply, onClear, range }) {
-  const [draft, setDraft] = useState(range);
-  const [error, setError] = useState("");
-
-  function updateDraft(field, value) {
-    setDraft((current) => ({
-      ...current,
-      [field]: value,
-    }));
-    setError("");
-  }
-
-  function handleSubmit(event) {
-    event.preventDefault();
-
-    const rangeError = validateRange(draft);
-
-    if (rangeError) {
-      setError(rangeError);
-      return;
-    }
-
-    onApply({
-      from: draft.from,
-      to: draft.to,
-    });
-  }
-
-  return (
-    <form className="date-range-card" onSubmit={handleSubmit}>
-      <div className="date-range-fields">
-        <label className="form-field">
-          <span>From</span>
-          <Input
-            disabled={isLoading}
-            onChange={(event) => updateDraft("from", event.target.value)}
-            type="date"
-            value={draft.from}
-          />
-        </label>
-        <label className="form-field">
-          <span>To</span>
-          <Input
-            disabled={isLoading}
-            onChange={(event) => updateDraft("to", event.target.value)}
-            type="date"
-            value={draft.to}
-          />
-        </label>
-      </div>
-      {error ? <p className="form-error" role="alert">{error}</p> : null}
-      <div className="filter-actions">
-        <Button disabled={isLoading} type="submit" size="sm">
-          <Search size={16} aria-hidden="true" />
-          Apply range
-        </Button>
-        <Button
-          disabled={isLoading || (!range.from && !range.to && !draft.from && !draft.to)}
-          onClick={() => {
-            setDraft({ from: "", to: "" });
-            setError("");
-            onClear();
-          }}
-          type="button"
-          size="sm"
-          variant="outline"
-        >
-          <RotateCcw size={16} aria-hidden="true" />
-          Clear
-        </Button>
-      </div>
-    </form>
-  );
 }
 
 function IncomeExpenseSummary({ expensePaise, incomePaise, netBalancePaise }) {
@@ -317,7 +223,9 @@ function BudgetsSummary({ data }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [range, setRange] = useState({
+  // Stats always cover the default period (current month). The date-range
+  // picker was removed from the UI; the empty range keeps the API contract.
+  const [range] = useState({
     from: "",
     to: "",
   });
@@ -519,15 +427,6 @@ export default function Dashboard() {
     },
   ];
 
-  function updateRange(nextRange) {
-    setState((current) => ({
-      ...current,
-      error: "",
-      status: "loading",
-    }));
-    setRange(nextRange);
-  }
-
   return (
     <section className="page-section" aria-labelledby="dashboard-title">
       <PageHeader
@@ -536,20 +435,12 @@ export default function Dashboard() {
         titleId="dashboard-title"
         description="Track your spending, income, and recurring payments in one calm view."
         actions={(
-          <div className="grid gap-3 sm:grid-cols-[minmax(280px,1fr)_auto] sm:items-start">
-            <DateRangeSelector
-              isLoading={state.status === "loading"}
-              onApply={updateRange}
-              onClear={() => updateRange({ from: "", to: "" })}
-              range={range}
-            />
-            <Button asChild>
-              <Link to="/expenses/new">
-                <CircleDollarSign size={18} aria-hidden="true" />
-                Add transaction
-              </Link>
-            </Button>
-          </div>
+          <Button asChild className="add-cta-desktop">
+            <Link to="/expenses/new">
+              <CircleDollarSign size={18} aria-hidden="true" />
+              Add transaction
+            </Link>
+          </Button>
         )}
       />
 
