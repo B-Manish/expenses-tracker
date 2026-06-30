@@ -464,7 +464,7 @@ export default function Expenses() {
         </div>
 
         {transactionState.status === "loading" ? (
-          <LoadingState title="Loading transactions" message="Fetching matching records." />
+          <LoadingState centered={false} title="Loading transactions" message="Fetching matching records." />
         ) : null}
 
         {transactionState.status === "error" ? (

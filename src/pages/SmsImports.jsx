@@ -240,7 +240,7 @@ export default function SmsImports() {
         </div>
 
         {listState.status === "loading" ? (
-          <LoadingState title="Loading SMS imports" message="Fetching captured messages." />
+          <LoadingState centered={false} title="Loading SMS imports" message="Fetching captured messages." />
         ) : null}
 
         {listState.status === "error" ? (
