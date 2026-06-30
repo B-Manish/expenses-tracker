@@ -1,30 +1,20 @@
 import {
   CalendarClock,
-  ChevronDown,
   CreditCard,
-  LayoutDashboard,
+  Home,
+  LayoutGrid,
   LogOut,
   MessageSquareText,
-  Menu,
-  PlusCircle,
+  Plus,
   ReceiptText,
   Settings,
   Tags,
   Target,
   WalletCards,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Button } from "./ui/button.jsx";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import { Separator } from "./ui/separator.jsx";
 import {
   Sheet,
@@ -35,10 +25,10 @@ import {
   SheetTrigger,
 } from "./ui/sheet.jsx";
 
-const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+const menuItems = [
+  { to: "/", label: "Dashboard", icon: Home, end: true },
   { to: "/expenses", label: "Transactions", icon: ReceiptText },
-  { to: "/expenses/new", label: "Add transaction", icon: PlusCircle },
+  { to: "/expenses/new", label: "Add transaction", icon: Plus },
   { to: "/recurring-expenses", label: "Recurring", icon: CalendarClock },
   { to: "/budgets", label: "Budgets", icon: Target },
   { to: "/sms-imports", label: "SMS Inbox", icon: MessageSquareText },
@@ -47,23 +37,27 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-function navClassName(item, pathname) {
-  return ({ isActive }) => {
-    const isAddRoute = pathname === "/expenses/new";
-    const isTransactionEditRoute = /^\/expenses\/[^/]+\/edit$/.test(pathname);
-    const shouldHighlightTransactions = item.to === "/expenses" && isTransactionEditRoute;
-    const shouldSuppressTransactions = item.to === "/expenses" && isAddRoute;
-    const active = (isActive && !shouldSuppressTransactions) || shouldHighlightTransactions;
+// Two items each side of the centered floating add button. Remaining routes
+// (Settings, Recurring, Categories, Payments, SMS) live in the More sheet.
+const bottomNavItems = [
+  { to: "/", label: "Home", icon: Home, end: true },
+  { to: "/expenses", label: "Entries", icon: ReceiptText },
+  { to: "/budgets", label: "Budgets", icon: Target },
+];
 
-    return active ? "nav-link active" : "nav-link";
-  };
+function bottomNavClassName({ isActive }) {
+  return isActive ? "bottom-nav-item active" : "bottom-nav-item";
+}
+
+function menuClassName({ isActive }) {
+  return isActive ? "nav-link active" : "nav-link";
 }
 
 function BrandLockup() {
   return (
     <Link className="brand-lockup" to="/" aria-label="Expense Tracker dashboard">
       <span className="brand-mark" aria-hidden="true">
-        <WalletCards size={21} />
+        <WalletCards size={20} />
       </span>
       <span>
         <span className="brand-name">Expense Tracker</span>
@@ -73,17 +67,11 @@ function BrandLockup() {
   );
 }
 
-function NavList({ onNavigate, pathname }) {
+function NavList({ onNavigate }) {
   return (
     <nav className="primary-nav" aria-label="Primary navigation">
-      {navItems.map(({ to, label, icon: Icon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          className={navClassName({ to }, pathname)}
-          onClick={onNavigate}
-        >
+      {menuItems.map(({ to, label, icon: Icon, end }) => (
+        <NavLink className={menuClassName} end={end} key={to} onClick={onNavigate} to={to}>
           <Icon size={18} aria-hidden="true" />
           <span>{label}</span>
         </NavLink>
@@ -92,127 +80,104 @@ function NavList({ onNavigate, pathname }) {
   );
 }
 
-function QuickActions({ onNavigate }) {
+function LogoutButton({ isLoggingOut, onLogout }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button className="w-full justify-between" type="button" variant="outline">
-          Quick actions
-          <ChevronDown size={16} aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>Shortcuts</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/expenses/new" onClick={onNavigate}>
-            <PlusCircle size={16} aria-hidden="true" />
-            Add transaction
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/expenses" onClick={onNavigate}>
-            <ReceiptText size={16} aria-hidden="true" />
-            View transactions
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/settings" onClick={onNavigate}>
-            <Settings size={16} aria-hidden="true" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <button className="nav-link nav-button" disabled={isLoggingOut} onClick={onLogout} type="button">
+      <LogOut size={18} aria-hidden="true" />
+      <span>{isLoggingOut ? "Signing out" : "Logout"}</span>
+    </button>
   );
 }
 
-function SidebarContent({ isLoggingOut, onLogout, onNavigate, pathname }) {
+function MoreMenu({ isLoggingOut, onLogout }) {
+  const [open, setOpen] = useState(false);
+
+  function close() {
+    setOpen(false);
+  }
+
   return (
-    <div className="sidebar-inner">
-      <BrandLockup />
-      <Separator />
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <button className="bottom-nav-item" type="button" aria-label="More navigation">
+          <LayoutGrid size={22} aria-hidden="true" />
+          <span>More</span>
+        </button>
+      </SheetTrigger>
+      <SheetContent className="w-[300px] p-4" side="left">
+        <SheetHeader className="text-left">
+          <SheetTitle>
+            <BrandLockup />
+          </SheetTitle>
+          <SheetDescription className="sr-only">Primary navigation and quick actions.</SheetDescription>
+        </SheetHeader>
 
-      <NavList onNavigate={onNavigate} pathname={pathname} />
+        <Separator className="my-4" />
 
-      <div className="sidebar-card" aria-label="Quick action">
-        <span className="sidebar-card-icon" aria-hidden="true">
-          <PlusCircle size={18} />
-        </span>
-        <div>
-          <strong>Keep the ledger fresh</strong>
-          <p>Add income or spending as soon as it happens.</p>
+        <NavList onNavigate={close} />
+
+        <div className="sidebar-footer">
+          <ThemeToggle />
+          <LogoutButton
+            isLoggingOut={isLoggingOut}
+            onLogout={() => {
+              close();
+              onLogout();
+            }}
+          />
         </div>
-        <Button asChild className="sidebar-card-action">
-          <Link to="/expenses/new" onClick={onNavigate}>
-            Add transaction
-          </Link>
-        </Button>
-        <QuickActions onNavigate={onNavigate} />
-      </div>
-
-      <button
-        className="nav-link nav-button"
-        type="button"
-        onClick={onLogout}
-        disabled={isLoggingOut}
-      >
-        <LogOut size={18} aria-hidden="true" />
-        <span>{isLoggingOut ? "Signing out" : "Logout"}</span>
-      </button>
-    </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
 export default function AppShell({ children, isLoggingOut = false, onLogout }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { pathname } = useLocation();
-
-  function closeMenu() {
-    setIsMenuOpen(false);
-  }
+  const isAddActive = pathname === "/expenses/new";
 
   return (
     <div className="app-shell">
-      <header className="mobile-topbar">
-        <BrandLockup />
-        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-          <SheetTrigger asChild>
-            <Button
-              className="mobile-menu-button"
-              size="icon"
-              type="button"
-              variant="outline"
-              aria-label={isMenuOpen ? "Close navigation" : "Open navigation"}
-            >
-              {isMenuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
-            </Button>
-          </SheetTrigger>
-          <SheetContent className="w-[300px] p-4" side="left">
-            <SheetHeader className="sr-only">
-              <SheetTitle>Navigation</SheetTitle>
-              <SheetDescription>Primary app navigation and quick actions.</SheetDescription>
-            </SheetHeader>
-            <SidebarContent
-              isLoggingOut={isLoggingOut}
-              onLogout={onLogout}
-              onNavigate={closeMenu}
-              pathname={pathname}
-            />
-          </SheetContent>
-        </Sheet>
-      </header>
-
-      <aside className={isMenuOpen ? "app-sidebar open" : "app-sidebar"} id="app-sidebar">
-        <SidebarContent
-          isLoggingOut={isLoggingOut}
-          onLogout={onLogout}
-          onNavigate={closeMenu}
-          pathname={pathname}
-        />
+      <aside className="app-sidebar" id="app-sidebar">
+        <div className="sidebar-inner">
+          <BrandLockup />
+          <Separator />
+          <NavList />
+          <div className="sidebar-footer">
+            <ThemeToggle />
+            <LogoutButton isLoggingOut={isLoggingOut} onLogout={onLogout} />
+          </div>
+        </div>
       </aside>
 
       <main className="app-main">{children}</main>
+
+      <nav className="bottom-nav" aria-label="Primary navigation">
+        <NavLink className={bottomNavClassName} end={bottomNavItems[0].end} to={bottomNavItems[0].to}>
+          <Home size={22} aria-hidden="true" />
+          <span>{bottomNavItems[0].label}</span>
+        </NavLink>
+        <NavLink className={bottomNavClassName} to={bottomNavItems[1].to}>
+          <ReceiptText size={22} aria-hidden="true" />
+          <span>{bottomNavItems[1].label}</span>
+        </NavLink>
+
+        <span className="bottom-nav-spacer" aria-hidden="true" />
+
+        <NavLink className={bottomNavClassName} to={bottomNavItems[2].to}>
+          <Target size={22} aria-hidden="true" />
+          <span>{bottomNavItems[2].label}</span>
+        </NavLink>
+        <MoreMenu isLoggingOut={isLoggingOut} onLogout={onLogout} />
+
+        <Link
+          aria-current={isAddActive ? "page" : undefined}
+          aria-label="Add transaction"
+          className={isAddActive ? "fab active" : "fab"}
+          to="/expenses/new"
+        >
+          <Plus size={26} aria-hidden="true" />
+        </Link>
+      </nav>
     </div>
   );
 }

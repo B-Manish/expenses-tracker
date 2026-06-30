@@ -410,7 +410,7 @@ export default function Expenses() {
         titleId="expenses-title"
         description="Search, filter, edit, and keep your ledger tidy."
         actions={(
-          <Button asChild>
+          <Button asChild className="add-cta-desktop">
             <Link to="/expenses/new">
               <PlusCircle size={18} aria-hidden="true" />
               Add transaction

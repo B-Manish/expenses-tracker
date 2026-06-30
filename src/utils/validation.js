@@ -51,6 +51,53 @@ export function validatePasswordConfirmation(password, confirmPassword) {
   return null;
 }
 
+// Live checklist for the "Create Your New Password" screen. Returns one boolean
+// per rule; each rule is unsatisfied while the field is empty so nothing shows a
+// checkmark before the user types. `identity` carries the user's name/email so
+// the password can be rejected for containing them.
+export function evaluatePasswordChecklist(password, identity = {}) {
+  const value = typeof password === "string" ? password : "";
+  const lower = value.toLowerCase();
+
+  const fragments = [];
+  const name = (identity.name || "").trim().toLowerCase();
+  const email = (identity.email || "").trim().toLowerCase();
+
+  if (name) {
+    fragments.push(name);
+    name.split(/\s+/).forEach((part) => fragments.push(part));
+  }
+
+  if (email) {
+    fragments.push(email);
+    const local = email.split("@")[0];
+
+    if (local) {
+      fragments.push(local);
+    }
+  }
+
+  // Only compare fragments of 3+ chars so a one-letter name doesn't fail everything.
+  const containsIdentity = fragments.some(
+    (fragment) => fragment.length >= 3 && lower.includes(fragment),
+  );
+
+  return {
+    noNameOrEmail: value.length > 0 && !containsIdentity,
+    minLength: value.length >= 8,
+    hasSymbolOrNumber: /\d/.test(value) || /[^A-Za-z0-9\s]/.test(value),
+  };
+}
+
+export function isPasswordChecklistComplete(checklist) {
+  return Boolean(
+    checklist &&
+      checklist.noNameOrEmail &&
+      checklist.minLength &&
+      checklist.hasSymbolOrNumber,
+  );
+}
+
 export function validateResetCode(code) {
   if (typeof code !== "string" || code.trim().length === 0) {
     return "Verification code is required.";

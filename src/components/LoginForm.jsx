@@ -1,12 +1,24 @@
-import { Eye, EyeOff, KeyRound, LogIn, Mail, UserPlus } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  Circle,
+  CreditCard,
+  Lock,
+  Mail,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 import {
+  evaluatePasswordChecklist,
   getErrorMessage,
+  isPasswordChecklistComplete,
   validatePassword,
   validatePasswordConfirmation,
 } from "../utils/validation.js";
-import { Button } from "./ui/button.jsx";
-import { Input } from "./ui/input.jsx";
+import GradientButton from "./auth/GradientButton.jsx";
+import Logo from "./auth/Logo.jsx";
+import PillField from "./auth/PillField.jsx";
 
 function normalizeCodeInput(value) {
   return value.replace(/\D/g, "").slice(0, 6);
@@ -34,6 +46,32 @@ function validateFullName(fullName) {
   return "";
 }
 
+function ErrorBanner({ message }) {
+  return (
+    <div
+      className="flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:bg-red-950/40 dark:text-red-300"
+      role="alert"
+    >
+      <AlertCircle size={18} aria-hidden="true" className="shrink-0" />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+function ChecklistItem({ label, satisfied }) {
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      {satisfied ? (
+        <Check size={16} aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400" />
+      ) : (
+        <Circle size={16} aria-hidden="true" className="shrink-0 text-slate-300 dark:text-slate-600" />
+      )}
+      <span className={satisfied ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500 dark:text-slate-400"}>{label}</span>
+      <span className="sr-only">{satisfied ? "(met)" : "(not met)"}</span>
+    </li>
+  );
+}
+
 export default function LoginForm({
   onAuthenticated,
   onCompleteReset,
@@ -42,9 +80,10 @@ export default function LoginForm({
   onRequestSignupCode,
   onVerifyReset,
   onVerifySignupCode,
+  sessionError = "",
 }) {
-  const [mode, setMode] = useState("login");
-  const [step, setStep] = useState("details");
+  const [view, setView] = useState("login");
+  const [codeContext, setCodeContext] = useState("reset");
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
@@ -52,110 +91,20 @@ export default function LoginForm({
   const [code, setCode] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const isSignup = mode === "signup";
-  const isReset = mode === "reset";
+  const checklist = evaluatePasswordChecklist(password, { email });
+  const checklistComplete = isPasswordChecklistComplete(checklist);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
 
-  function resetForMode(nextMode) {
-    setMode(nextMode);
-    setStep("details");
+  function goToLogin() {
+    setView("login");
+    setPassword("");
+    setConfirmPassword("");
     setCode("");
     setResetToken("");
     setError("");
-    setSuccess("");
-  }
-
-  async function requestResetCode() {
-    const emailError = validateEmail(email);
-
-    if (emailError) {
-      setError(emailError);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const result = await onRequestReset(email.trim());
-      const minutes = result?.expiresInMinutes || 10;
-      const devCode = result?.devCode ? ` Dev code: ${result.devCode}` : "";
-
-      setMode("reset");
-      setStep("code");
-      setCode("");
-      setPassword("");
-      setConfirmPassword("");
-      setSuccess(`Verification code sent to your email. It expires in ${minutes} minutes.${devCode}`);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError, "Could not send verification code."));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function verifyResetCode(event) {
-    event.preventDefault();
-
-    if (!/^[0-9]{6}$/.test(code)) {
-      setError("Enter the 6-digit verification code.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-
-    try {
-      const result = await onVerifyReset(email.trim(), code);
-      const minutes = result?.expiresInMinutes || 15;
-
-      setResetToken(result?.resetToken || "");
-      setStep("reset-password");
-      setCode("");
-      setSuccess(`Code verified. Set a new password now. This reset session expires in ${minutes} minutes.`);
-    } catch (verifyError) {
-      setError(getErrorMessage(verifyError, "Could not verify code."));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function completeReset(event) {
-    event.preventDefault();
-
-    const passwordError = validatePasswordConfirmation(password, confirmPassword);
-
-    if (passwordError) {
-      setError(passwordError);
-      return;
-    }
-
-    if (!resetToken) {
-      setError("Reset session expired. Request a new code.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-
-    try {
-      await onCompleteReset(resetToken, password);
-      setMode("login");
-      setStep("details");
-      setResetToken("");
-      setPassword("");
-      setConfirmPassword("");
-      setSuccess("Password updated. Sign in with your new password.");
-    } catch (resetError) {
-      setError(getErrorMessage(resetError, "Could not reset password."));
-    } finally {
-      setIsSubmitting(false);
-    }
   }
 
   async function handleLogin(event) {
@@ -171,19 +120,45 @@ export default function LoginForm({
 
     setIsSubmitting(true);
     setError("");
-    setSuccess("");
 
     try {
       await onLogin(email.trim(), password);
       await onAuthenticated();
     } catch (loginError) {
-      setError(getErrorMessage(loginError, "Could not sign in."));
+      setError(getErrorMessage(loginError, "Incorrect username or password"));
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  async function requestSignupCode(event) {
+  async function startPasswordReset() {
+    const emailError = validateEmail(email);
+
+    if (emailError) {
+      setError("Enter your email above, then tap Forgot password.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const result = await onRequestReset(email.trim());
+      const minutes = result?.expiresInMinutes || 10;
+      const devCode = result?.devCode ? ` Dev code: ${result.devCode}.` : "";
+
+      setCodeContext("reset");
+      setCode("");
+      setNotice(`We sent a 6-digit code to ${email.trim()}. It expires in ${minutes} minutes.${devCode}`);
+      setView("code");
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Could not send verification code."));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleSignup(event) {
     event.preventDefault();
 
     const fullNameError = validateFullName(fullName);
@@ -197,7 +172,6 @@ export default function LoginForm({
 
     setIsSubmitting(true);
     setError("");
-    setSuccess("");
 
     try {
       const result = await onRequestSignupCode({
@@ -206,11 +180,12 @@ export default function LoginForm({
         password,
       });
       const minutes = result?.expiresInMinutes || 10;
-      const devCode = result?.devCode ? ` Dev code: ${result.devCode}` : "";
+      const devCode = result?.devCode ? ` Dev code: ${result.devCode}.` : "";
 
-      setStep("code");
+      setCodeContext("signup");
       setCode("");
-      setSuccess(`Verification code sent to your email. It expires in ${minutes} minutes.${devCode}`);
+      setNotice(`We sent a 6-digit code to ${email.trim()}. It expires in ${minutes} minutes.${devCode}`);
+      setView("code");
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Could not send verification code."));
     } finally {
@@ -218,7 +193,7 @@ export default function LoginForm({
     }
   }
 
-  async function verifySignupCode(event) {
+  async function handleVerifyCode(event) {
     event.preventDefault();
 
     if (!/^[0-9]{6}$/.test(code)) {
@@ -230,8 +205,19 @@ export default function LoginForm({
     setError("");
 
     try {
-      await onVerifySignupCode(email.trim(), code);
-      await onAuthenticated();
+      if (codeContext === "signup") {
+        await onVerifySignupCode(email.trim(), code);
+        await onAuthenticated();
+        return;
+      }
+
+      const result = await onVerifyReset(email.trim(), code);
+
+      setResetToken(result?.resetToken || "");
+      setPassword("");
+      setConfirmPassword("");
+      setNotice("");
+      setView("new-password");
     } catch (verifyError) {
       setError(getErrorMessage(verifyError, "Could not verify code."));
     } finally {
@@ -239,264 +225,333 @@ export default function LoginForm({
     }
   }
 
-  if (step === "code") {
-    return (
-      <form className="login-form" onSubmit={isReset ? verifyResetCode : verifySignupCode}>
-        <label className="form-field" htmlFor="email-code">
-          <span>Verification code</span>
-          <Input
-            id="email-code"
-            name="code"
-            className="code-input"
-            type="text"
-            value={code}
-            onChange={(event) => setCode(normalizeCodeInput(event.target.value))}
-            autoComplete="one-time-code"
-            disabled={isSubmitting}
-            inputMode="numeric"
-            maxLength={6}
-          />
-        </label>
+  async function handleCompleteReset(event) {
+    event.preventDefault();
 
-        {success ? <p className="success-message" role="status">{success}</p> : null}
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
+    if (!checklistComplete) {
+      setError("Your password does not meet all the requirements yet.");
+      return;
+    }
 
-        <Button className="login-button" type="submit" disabled={isSubmitting}>
-          <KeyRound size={18} aria-hidden="true" />
-          {isSubmitting ? "Verifying" : isReset ? "Verify code" : "Create account"}
-        </Button>
+    if (!passwordsMatch) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-        <div className="login-secondary-actions">
-          <button
-            className="text-link"
-            type="button"
-            onClick={() => {
-              setMode("login");
-              setStep("details");
-            }}
-            disabled={isSubmitting}
-          >
-            {isReset ? "Back to sign in" : "Edit details"}
-          </button>
-          <button
-            className="text-link"
-            type="button"
-            onClick={() => {
-              setCode("");
-              setError("");
-              setSuccess("");
-            }}
-            disabled={isSubmitting}
-          >
-            Clear code
-          </button>
-        </div>
-      </form>
-    );
+    if (!resetToken) {
+      setError("Reset session expired. Request a new code.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      await onCompleteReset(resetToken, password);
+      setView("success");
+    } catch (resetError) {
+      setError(getErrorMessage(resetError, "Could not reset password."));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  if (step === "reset-password") {
+  // --- Login -------------------------------------------------------------
+  if (view === "login") {
+    const bannerError = error || sessionError;
+
     return (
-      <form className="login-form" onSubmit={completeReset}>
-        <label className="field-label" htmlFor="new-password">
-          New password
-        </label>
-        <div className="password-field">
-          <Input
-            id="new-password"
-            name="newPassword"
-            type={showPassword ? "text" : "password"}
+      <form className="flex flex-1 flex-col" onSubmit={handleLogin}>
+        <Logo className="mb-8 mt-2" />
+
+        {bannerError ? (
+          <div className="mb-4">
+            <ErrorBanner message={bannerError} />
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          <PillField
+            label="Email"
+            icon={Mail}
+            type="email"
+            name="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email"
+            autoComplete="email"
+            inputMode="email"
+            error={Boolean(bannerError)}
+            disabled={isSubmitting}
+          />
+          <PillField
+            label="Password"
+            icon={Lock}
+            type="password"
+            name="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            autoComplete="new-password"
+            placeholder="Password"
+            autoComplete="current-password"
+            error={Boolean(bannerError)}
             disabled={isSubmitting}
           />
-          <Button
-            className="icon-button"
-            type="button"
-            aria-label={showPassword ? "Hide password" : "Show password"}
-            title={showPassword ? "Hide password" : "Show password"}
-            onClick={() => setShowPassword((current) => !current)}
-            disabled={isSubmitting}
-            size="icon"
-            variant="outline"
-          >
-            {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-          </Button>
         </div>
 
-        <label className="field-label" htmlFor="reset-confirm-password">
-          Confirm password
-        </label>
-        <div className="password-field">
-          <Input
-            id="reset-confirm-password"
-            name="confirmPassword"
-            type={showConfirmPassword ? "text" : "password"}
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            autoComplete="new-password"
-            disabled={isSubmitting}
-          />
-          <Button
-            className="icon-button"
-            type="button"
-            aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-            title={showConfirmPassword ? "Hide password" : "Show password"}
-            onClick={() => setShowConfirmPassword((current) => !current)}
-            disabled={isSubmitting}
-            size="icon"
-            variant="outline"
-          >
-            {showConfirmPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-          </Button>
+        <div className="mt-6">
+          <GradientButton type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in…" : "Login"}
+          </GradientButton>
         </div>
 
-        {success ? <p className="success-message" role="status">{success}</p> : null}
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
+        <button
+          type="button"
+          onClick={startPasswordReset}
+          disabled={isSubmitting}
+          className="mx-auto mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-200"
+        >
+          Forgot password
+        </button>
 
-        <Button className="login-button" type="submit" disabled={isSubmitting}>
-          <KeyRound size={18} aria-hidden="true" />
-          {isSubmitting ? "Saving password" : "Set new password"}
-        </Button>
+        <p className="mt-auto pt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+          Don&apos;t have an account?{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setPassword("");
+              setView("signup");
+            }}
+            className="font-semibold text-blue-600 hover:underline"
+          >
+            Register here
+          </button>
+        </p>
       </form>
     );
   }
 
-  return (
-    <form className="login-form" onSubmit={isSignup ? requestSignupCode : handleLogin}>
-      <div className="auth-mode-switch" role="tablist" aria-label="Authentication mode">
-        <Button
+  // --- Sign up -----------------------------------------------------------
+  if (view === "signup") {
+    return (
+      <form className="flex flex-1 flex-col" onSubmit={handleSignup}>
+        <button
           type="button"
-          variant={isSignup ? "outline" : "default"}
-          onClick={() => resetForMode("login")}
-          disabled={isSubmitting}
+          onClick={goToLogin}
+          className="mb-6 -ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          aria-label="Back to login"
         >
-          <LogIn size={18} aria-hidden="true" />
-          Sign in
-        </Button>
-        <Button
-          type="button"
-          variant={isSignup ? "default" : "outline"}
-          onClick={() => resetForMode("signup")}
-          disabled={isSubmitting}
-        >
-          <UserPlus size={18} aria-hidden="true" />
-          Sign up
-        </Button>
-      </div>
+          <ArrowLeft size={20} aria-hidden="true" />
+        </button>
 
-      {isSignup ? (
-        <label className="form-field" htmlFor="full-name">
-          <span>Full name</span>
-          <Input
-            id="full-name"
-            name="fullName"
+        <Logo className="mb-8" />
+
+        {error ? (
+          <div className="mb-4">
+            <ErrorBanner message={error} />
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          <PillField
+            label="Full name"
+            icon={User}
             type="text"
+            name="fullName"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
+            placeholder="Full name"
             autoComplete="name"
-            disabled={isSubmitting}
             maxLength={120}
+            disabled={isSubmitting}
           />
-        </label>
-      ) : null}
+          <PillField
+            label="Email"
+            icon={Mail}
+            type="email"
+            name="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="Email"
+            autoComplete="email"
+            inputMode="email"
+            disabled={isSubmitting}
+          />
+          <PillField
+            label="Password"
+            icon={Lock}
+            type="password"
+            name="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Password"
+            autoComplete="new-password"
+            disabled={isSubmitting}
+          />
+          <PillField
+            label="Confirm password"
+            icon={Lock}
+            type="password"
+            name="confirmPassword"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder="Confirm password"
+            autoComplete="new-password"
+            disabled={isSubmitting}
+          />
+        </div>
 
-      <label className="form-field" htmlFor="email">
-        <span>Email</span>
-        <Input
-          id="email"
-          name="email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          autoComplete="email"
-          disabled={isSubmitting}
-          inputMode="email"
-          placeholder="name@example.com"
-        />
-      </label>
+        <div className="mt-6">
+          <GradientButton type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Sending code…" : "Create account"}
+          </GradientButton>
+        </div>
+      </form>
+    );
+  }
 
-      <label className="field-label" htmlFor="auth-password">
-        Password
-      </label>
-      <div className="password-field">
-        <Input
-          id="auth-password"
-          name="password"
-          type={showPassword ? "text" : "password"}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete={isSignup ? "new-password" : "current-password"}
-          disabled={isSubmitting}
-        />
-        <Button
-          className="icon-button"
+  // --- Verify code -------------------------------------------------------
+  if (view === "code") {
+    return (
+      <form className="flex flex-1 flex-col" onSubmit={handleVerifyCode}>
+        <button
           type="button"
-          aria-label={showPassword ? "Hide password" : "Show password"}
-          title={showPassword ? "Hide password" : "Show password"}
-          onClick={() => setShowPassword((current) => !current)}
-          disabled={isSubmitting}
-          size="icon"
-          variant="outline"
+          onClick={() => {
+            setError("");
+            setView(codeContext === "signup" ? "signup" : "login");
+          }}
+          className="mb-6 -ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          aria-label="Back"
         >
-          {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-        </Button>
+          <ArrowLeft size={20} aria-hidden="true" />
+        </button>
+
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Enter the code</h1>
+        {notice ? <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{notice}</p> : null}
+
+        {error ? (
+          <div className="mb-4 mt-5">
+            <ErrorBanner message={error} />
+          </div>
+        ) : null}
+
+        <div className="mt-6">
+          <PillField
+            label="6-digit verification code"
+            type="text"
+            name="code"
+            value={code}
+            onChange={(event) => setCode(normalizeCodeInput(event.target.value))}
+            placeholder="••••••"
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            maxLength={6}
+            className="[&_input]:tracking-[0.5em]"
+            disabled={isSubmitting}
+          />
+        </div>
+
+        <div className="mt-6">
+          <GradientButton type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Verifying…" : codeContext === "signup" ? "Verify & continue" : "Verify code"}
+          </GradientButton>
+        </div>
+      </form>
+    );
+  }
+
+  // --- Create new password (live checklist) ------------------------------
+  if (view === "new-password") {
+    const resetDisabled = isSubmitting || !checklistComplete || !passwordsMatch;
+
+    return (
+      <form className="flex flex-1 flex-col" onSubmit={handleCompleteReset}>
+        <button
+          type="button"
+          onClick={() => {
+            setError("");
+            setView("code");
+          }}
+          className="mb-6 -ml-1 flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          aria-label="Back"
+        >
+          <ArrowLeft size={20} aria-hidden="true" />
+        </button>
+
+        <h1 className="text-2xl font-bold leading-tight text-slate-900 dark:text-white">
+          Create Your New Password
+        </h1>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Your new password must be different from previous password.
+        </p>
+
+        {error ? (
+          <div className="mt-5">
+            <ErrorBanner message={error} />
+          </div>
+        ) : null}
+
+        <div className="mt-6 space-y-3">
+          <PillField
+            label="New password"
+            icon={Lock}
+            type="password"
+            name="newPassword"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Password"
+            autoComplete="new-password"
+            disabled={isSubmitting}
+          />
+          <PillField
+            label="Confirm new password"
+            icon={Lock}
+            type="password"
+            name="confirmPassword"
+            value={confirmPassword}
+            onChange={(event) => setConfirmPassword(event.target.value)}
+            placeholder="Confirm password"
+            autoComplete="new-password"
+            error={confirmPassword.length > 0 && !passwordsMatch}
+            disabled={isSubmitting}
+          />
+        </div>
+
+        <ul className="mt-5 space-y-2.5">
+          <ChecklistItem label="Must not contain your name or email" satisfied={checklist.noNameOrEmail} />
+          <ChecklistItem label="At least 8 characters" satisfied={checklist.minLength} />
+          <ChecklistItem label="Contains a symbol or a number" satisfied={checklist.hasSymbolOrNumber} />
+        </ul>
+
+        <div className="mt-auto pt-8">
+          <GradientButton type="submit" disabled={resetDisabled}>
+            {isSubmitting ? "Resetting…" : "Reset password"}
+          </GradientButton>
+        </div>
+      </form>
+    );
+  }
+
+  // --- Success -----------------------------------------------------------
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center text-center">
+      <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-blue-50 dark:bg-blue-950/40">
+        <CreditCard size={40} aria-hidden="true" className="text-blue-500" />
+        <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white ring-4 ring-white dark:ring-slate-900">
+          <Check size={18} aria-hidden="true" />
+        </span>
       </div>
 
-      {isSignup ? (
-        <>
-          <label className="field-label" htmlFor="confirm-password">
-            Confirm password
-          </label>
-          <div className="password-field">
-            <Input
-              id="confirm-password"
-              name="confirmPassword"
-              type={showConfirmPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              autoComplete="new-password"
-              disabled={isSubmitting}
-            />
-            <Button
-              className="icon-button"
-              type="button"
-              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-              title={showConfirmPassword ? "Hide password" : "Show password"}
-              onClick={() => setShowConfirmPassword((current) => !current)}
-              disabled={isSubmitting}
-              size="icon"
-              variant="outline"
-            >
-              {showConfirmPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
-            </Button>
-          </div>
-        </>
-      ) : null}
+      <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Password updated!</h1>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        Your password has been setup successfully
+      </p>
 
-      {success ? <p className="success-message" role="status">{success}</p> : null}
-      {error ? <p className="form-error" role="alert">{error}</p> : null}
-
-      <Button className="login-button" type="submit" disabled={isSubmitting}>
-        {isSignup ? <Mail size={18} aria-hidden="true" /> : <LogIn size={18} aria-hidden="true" />}
-        {isSubmitting
-          ? isSignup ? "Sending code" : "Signing in"
-          : isSignup ? "Send verification code" : "Sign in"}
-      </Button>
-
-      {!isSignup ? (
-        <Button
-          className="login-button"
-          type="button"
-          onClick={requestResetCode}
-          disabled={isSubmitting}
-          variant="outline"
-        >
-          <KeyRound size={18} aria-hidden="true" />
-          Forgot / reset password
-        </Button>
-      ) : null}
-    </form>
+      <div className="mt-auto w-full pt-10">
+        <GradientButton type="button" onClick={goToLogin}>
+          Back to login
+        </GradientButton>
+      </div>
+    </div>
   );
 }

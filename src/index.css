@@ -36,32 +36,8 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    --foreground: #e2e8f0;
-    --card: #0f172a;
-    --card-foreground: #f8fafc;
-    --popover: #0f172a;
-    --popover-foreground: #f8fafc;
-    --primary: #60a5fa;
-    --primary-foreground: #082f49;
-    --secondary: #1e293b;
-    --secondary-foreground: #e2e8f0;
-    --muted: #1e293b;
-    --muted-foreground: #94a3b8;
-    --accent: #172554;
-    --accent-foreground: #bfdbfe;
-    --destructive: #fb7185;
-    --destructive-foreground: #450a0a;
-    --border: #1e293b;
-    --input: #334155;
-    --ring: #60a5fa;
-    --income: #34d399;
-    --expense: #fb7185;
-    --warning: #fbbf24;
-  }
-}
+/* Light theme is forced to match the reference design. Dark palette stays
+   available only via an explicit `.dark` class, never via OS preference. */
 
 .dark {
   --background: #020617;
@@ -186,11 +162,36 @@
 
 @layer components {
   .app-shell {
-    @apply grid min-h-svh grid-cols-[248px_minmax(0,1fr)];
+    @apply flex h-svh w-full flex-col overflow-hidden bg-background;
+  }
+
+  .bottom-nav {
+    @apply relative z-30 grid shrink-0 grid-cols-5 items-center gap-1 border-t bg-card px-2 pt-2;
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .bottom-nav-item {
+    @apply inline-flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl border-0 bg-transparent py-1 text-[0.65rem] font-semibold text-muted-foreground no-underline transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+
+  .bottom-nav-item.active {
+    @apply text-primary;
+  }
+
+  .bottom-nav-spacer {
+    @apply block;
+  }
+
+  .fab {
+    @apply absolute left-1/2 top-0 inline-flex size-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground no-underline shadow-lg ring-4 ring-card transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  .fab.active {
+    @apply scale-105 bg-primary/90;
   }
 
   .app-sidebar {
-    @apply sticky top-0 z-30 h-svh border-r bg-card/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/85;
+    @apply hidden;
   }
 
   .sidebar-inner {
@@ -262,6 +263,10 @@
     @apply bg-destructive/10 text-destructive;
   }
 
+  .sidebar-footer {
+    @apply mt-auto grid gap-1;
+  }
+
   .sidebar-card {
     @apply mt-auto grid gap-3 rounded-lg border bg-muted/35 p-4;
   }
@@ -292,7 +297,8 @@
   }
 
   .app-main {
-    @apply mx-auto w-full max-w-[1320px] px-5 py-6 sm:px-6 lg:px-8 lg:py-8;
+    @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-8 pt-5;
+    overscroll-behavior: contain;
   }
 
   .standalone-shell,
@@ -341,21 +347,19 @@
   }
 
   .summary-grid {
-    @apply grid gap-3 sm:grid-cols-2 xl:grid-cols-4;
-  }
-
-  .dashboard-summary-grid {
-    @apply xl:grid-cols-4;
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   }
 
   .summary-card,
   .panel,
   .state-block {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+    @apply rounded-2xl border border-border/60 bg-card text-card-foreground;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 28px -18px rgba(15, 23, 42, 0.22);
   }
 
   .summary-card {
-    @apply grid min-h-32 gap-2 overflow-hidden p-4;
+    @apply grid min-h-28 content-start gap-1.5 overflow-hidden p-4;
   }
 
   .summary-card p {
@@ -403,7 +407,8 @@
   }
 
   .insight-grid {
-    @apply grid gap-3 md:grid-cols-3;
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   }
 
   .insight-card {
@@ -430,11 +435,11 @@
 
   .dashboard-chart-grid,
   .two-column-grid {
-    @apply lg:grid-cols-2;
+    @apply grid-cols-1 md:grid-cols-2;
   }
 
   .wide-panel {
-    @apply lg:col-span-2;
+    grid-column: 1 / -1;
   }
 
   .panel {
@@ -479,8 +484,8 @@
   }
 
   .button {
-    @apply inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
-    padding-inline: 1rem;
+    @apply inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+    padding-inline: 1.25rem;
   }
 
   .primary-button {
@@ -525,7 +530,7 @@
   }
 
   .list-row {
-    @apply grid min-h-16 grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/30;
+    @apply grid min-h-14 grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-muted/50;
   }
 
   .management-row > .category-color {
@@ -549,7 +554,7 @@
   }
 
   .list-icon {
-    @apply size-10 bg-muted text-muted-foreground;
+    @apply size-11 rounded-xl bg-muted text-muted-foreground;
   }
 
   .list-content {
@@ -698,7 +703,7 @@
   }
 
   .chip {
-    @apply inline-flex min-h-9 max-w-full items-center gap-2 rounded-md border bg-muted/50 px-3 py-1.5 text-sm font-medium;
+    @apply inline-flex min-h-9 max-w-full items-center gap-2 rounded-full border bg-muted/50 px-3.5 py-1.5 text-sm font-medium;
   }
 
   .chip span:nth-child(2) {
@@ -745,11 +750,11 @@
 
   .settings-form-grid,
   .form-grid {
-    @apply md:grid-cols-2;
+    @apply grid-cols-1;
   }
 
   .filter-grid {
-    @apply md:grid-cols-2 xl:grid-cols-[1.35fr_repeat(3,minmax(140px,1fr))];
+    @apply grid-cols-1;
   }
 
   .color-picker-field {
@@ -773,7 +778,7 @@
   }
 
   .readonly-value {
-    @apply flex min-h-10 items-center rounded-md border border-input bg-muted/50 px-3 py-2 text-sm font-medium text-foreground;
+    @apply flex min-h-11 items-center rounded-xl border border-input bg-muted/50 px-3.5 py-2 text-sm font-medium text-foreground;
   }
 
   .placeholder-panel {
@@ -820,8 +825,8 @@
   .form-field input,
   .form-field select,
   .form-field textarea {
-    @apply w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
-    min-height: 2.5rem;
+    @apply w-full rounded-xl border border-input bg-background px-3.5 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50;
+    min-height: 2.75rem;
   }
 
   .password-field input {
@@ -911,15 +916,15 @@
   }
 
   .segmented-control {
-    @apply inline-grid grid-cols-2 gap-1 rounded-lg bg-muted p-1;
+    @apply grid w-full grid-cols-2 gap-1 rounded-xl bg-muted p-1;
   }
 
   .segment-option {
-    @apply relative inline-flex min-h-9 items-center justify-center rounded-md px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors;
+    @apply relative inline-flex min-h-10 items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors;
   }
 
   .segment-option.active {
-    @apply bg-background text-foreground shadow-sm;
+    @apply bg-primary text-primary-foreground shadow-sm;
   }
 
   .segment-option:focus-within {
@@ -1015,12 +1020,16 @@
     @apply border-rose-300 bg-rose-50 text-destructive dark:bg-rose-950;
   }
 
+  .desktop-transactions {
+    @apply hidden;
+  }
+
   .mobile-transaction-list {
-    @apply m-0 hidden list-none gap-3 p-0;
+    @apply m-0 grid list-none gap-3 p-0;
   }
 
   .transaction-card {
-    @apply grid gap-3 rounded-lg border bg-card p-4;
+    @apply grid gap-3 rounded-2xl border border-border/60 bg-card p-4;
   }
 
   .transaction-card-main,
@@ -1164,163 +1173,179 @@
   }
 }
 
-@media (max-width: 1180px) {
-  .dashboard-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+/* Mobile-first base: phones and tablets render inside a fixed mobile-width
+   frame with a bottom nav, so the compact presentation is the default. The
+   desktop block below (>=1024px) restores a sidebar + full-width multi-column
+   layout. */
+h1 {
+  @apply text-2xl;
 }
 
-@media (max-width: 980px) {
-  h1 {
-    @apply text-2xl;
-  }
+.page-header,
+.panel-header {
+  @apply flex-col;
+}
 
+.page-actions,
+.panel-actions,
+.settings-summary {
+  @apply justify-start;
+}
+
+/* The header "Add transaction" CTA is redundant on mobile (the bottom-center
+   FAB covers it), so hide its action wrapper below the desktop breakpoint. */
+.page-actions:has(> .add-cta-desktop) {
+  @apply hidden;
+}
+
+.login-shell,
+.standalone-shell {
+  @apply p-4;
+}
+
+.login-panel,
+.panel,
+.state-block {
+  @apply p-4;
+}
+
+.page-actions .button,
+.filter-actions .button,
+.form-actions .button,
+.placeholder-panel .button,
+.pagination-bar .button,
+.dialog-actions .button {
+  @apply w-full;
+}
+
+.subcategory-list {
+  @apply ml-2.5 pl-2.5;
+}
+
+.chart-center-label {
+  @apply top-[40%] w-[min(140px,52%)];
+}
+
+.comparison-row > div:first-child,
+.net-summary {
+  @apply flex-col items-start gap-1;
+}
+
+.transaction-card-footer,
+.pagination-bar,
+.success-message {
+  @apply flex-col items-stretch;
+}
+
+.row-actions,
+.dialog-actions,
+.filter-actions,
+.form-actions {
+  @apply w-full;
+}
+
+/* Full-width primary CTA on forms (reference direction). */
+.transaction-form .form-actions,
+.settings-form .form-actions {
+  @apply flex-col items-stretch;
+}
+
+/* Desktop (>=1024px): sidebar + full-width multi-column layout. Overrides the
+   mobile frame and bottom nav above. */
+@media (min-width: 1024px) {
   .app-shell {
-    @apply block;
-  }
-
-  .mobile-topbar {
-    @apply sticky top-0 z-40 flex min-h-16 items-center justify-between border-b bg-background/90 px-4 py-2 backdrop-blur;
-  }
-
-  .mobile-menu-button {
-    @apply inline-flex;
+    @apply grid h-auto min-h-svh grid-cols-[260px_minmax(0,1fr)] overflow-visible;
   }
 
   .app-sidebar {
+    @apply sticky top-0 z-30 flex h-svh flex-col border-r bg-card/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-card/85;
+  }
+
+  .bottom-nav {
     @apply hidden;
   }
 
   .app-main {
-    @apply px-4 py-5;
+    @apply mx-auto w-full max-w-[1320px] flex-none overflow-visible px-8 py-8;
+    overscroll-behavior: auto;
+  }
+
+  h1 {
+    @apply text-3xl;
   }
 
   .page-header,
   .panel-header {
-    @apply flex-col;
+    @apply flex-row items-start justify-between;
   }
 
   .page-actions,
-  .panel-actions {
-    @apply justify-start;
-  }
-
-  .filter-grid {
-    @apply grid-cols-1;
-  }
-
+  .panel-actions,
   .settings-summary {
-    @apply justify-start;
+    @apply justify-end;
   }
 
-  .segmented-control {
-    @apply w-full;
-  }
-}
-
-@media (max-width: 680px) {
-  .dashboard-summary-grid,
-  .summary-grid {
-    @apply grid-cols-1;
-  }
-
-  .login-shell,
-  .standalone-shell {
-    @apply p-4;
+  .page-actions:has(> .add-cta-desktop) {
+    @apply flex;
   }
 
   .login-panel,
   .panel,
   .state-block {
-    @apply p-4;
+    @apply p-5;
   }
 
-  .summary-card {
-    @apply min-h-28;
+  .form-grid,
+  .settings-form-grid {
+    @apply grid-cols-2;
   }
 
-  .page-actions,
-  .page-actions .button,
-  .filter-actions .button,
-  .form-actions .button,
-  .placeholder-panel .button,
-  .pagination-bar .button {
-    @apply w-full;
+  .filter-grid {
+    @apply grid-cols-[1.35fr_repeat(3,minmax(140px,1fr))];
   }
 
-  .list-row,
-  .transaction-row,
-  .recurring-row {
-    grid-template-columns: 2.5rem minmax(0, 1fr);
+  .desktop-transactions {
+    @apply block;
   }
 
-  .subcategory-list {
-    @apply ml-2.5 pl-2.5;
-  }
-
-  .list-row .row-actions {
-    @apply col-start-2 justify-self-start;
-  }
-
-  .list-row .amount,
-  .transaction-row .amount,
-  .transaction-row .icon-button {
-    @apply col-start-2 justify-self-start;
-  }
-
-  .category-row {
-    grid-template-columns: 0.75rem minmax(0, 1fr);
-  }
-
-  .category-row strong {
-    @apply col-start-2;
-  }
-
-  .chart-center-label {
-    @apply top-[40%] w-[min(140px,52%)];
+  .mobile-transaction-list {
+    @apply hidden;
   }
 
   .comparison-row > div:first-child,
   .net-summary {
-    @apply flex-col items-start gap-1;
+    @apply flex-row items-center justify-between gap-3;
   }
 
-  .settings-row {
-    grid-template-columns: 2.5rem minmax(0, 1fr);
-  }
-
-  .settings-row strong {
-    @apply col-start-2;
-  }
-
-  .desktop-transactions {
-    @apply hidden;
-  }
-
-  .mobile-transaction-list {
-    @apply grid;
-  }
-
-  .transaction-card-main,
   .transaction-card-footer,
   .pagination-bar,
   .success-message {
-    @apply flex-col items-stretch;
+    @apply flex-row items-center;
   }
 
-  .transaction-card-title,
-  .transaction-meta {
-    @apply grid-cols-1;
+  .pagination-bar {
+    @apply justify-between;
   }
 
+  .page-actions .button,
+  .filter-actions .button,
+  .form-actions .button,
+  .placeholder-panel .button,
+  .pagination-bar .button,
+  .dialog-actions .button,
   .row-actions,
   .dialog-actions,
   .filter-actions,
   .form-actions {
-    @apply w-full;
+    @apply w-auto;
   }
 
-  .dialog-actions .button {
-    @apply w-full;
+  .transaction-form .form-actions,
+  .settings-form .form-actions {
+    @apply flex-row justify-end;
+  }
+
+  .segmented-control {
+    @apply inline-grid w-auto;
   }
 }
