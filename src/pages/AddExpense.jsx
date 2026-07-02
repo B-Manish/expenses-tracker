@@ -170,7 +170,6 @@ export default function AddExpense() {
         onSubmit={handleSubmit}
         paymentMethods={referenceState.paymentMethods}
         serverError={submitState.error}
-        submitLabel="Add transaction"
       />
     </section>
   );

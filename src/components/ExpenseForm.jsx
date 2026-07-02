@@ -1,11 +1,11 @@
-import { Save } from "lucide-react";
 import { useMemo, useState } from "react";
-import { formatCategoryLabel } from "../utils/categories.js";
 import { paiseToRupeesInputValue } from "../utils/currency.js";
 import { getCurrentTimeInKolkata, getTodayInKolkata } from "../utils/dateUtils.js";
 import { getFirstValidationError, validateTransactionForm } from "../utils/validation.js";
+import CategoryChips from "./CategoryChips.jsx";
+import GradientButton from "./auth/GradientButton.jsx";
+import MonthStrip from "./MonthStrip.jsx";
 import SelectControl from "./SelectControl.jsx";
-import { Button } from "./ui/button.jsx";
 import { Input } from "./ui/input.jsx";
 
 const TYPE_OPTIONS = [
@@ -54,7 +54,7 @@ export default function ExpenseForm({
   onSubmit,
   paymentMethods = [],
   serverError = "",
-  submitLabel = "Save transaction",
+  submitLabel = "",
 }) {
   const [values, setValues] = useState(() => buildInitialValues(initialTransaction));
   const [errors, setErrors] = useState({});
@@ -64,13 +64,6 @@ export default function ExpenseForm({
     () => categories.filter((category) => category.type === values.type),
     [categories, values.type],
   );
-  const categoryOptions = useMemo(() => [
-    { label: "Uncategorized", value: "" },
-    ...filteredCategories.map((category) => ({
-      label: formatCategoryLabel(category),
-      value: String(category.id),
-    })),
-  ], [filteredCategories]);
   const paymentMethodOptions = useMemo(() => [
     { label: "Not set", value: "" },
     ...paymentMethods.map((method) => ({
@@ -178,17 +171,14 @@ export default function ExpenseForm({
           {errors.amount ? <span className="field-error">{errors.amount}</span> : null}
         </label>
 
-        <label className="form-field">
+        <div className="form-field wide-panel">
           <span>Date</span>
-          <Input
-            disabled={isSubmitting}
-            onChange={(event) => updateField("transactionDate", event.target.value)}
-            required
-            type="date"
+          <MonthStrip
+            onChange={(day) => updateField("transactionDate", day)}
             value={values.transactionDate}
           />
           {errors.transactionDate ? <span className="field-error">{errors.transactionDate}</span> : null}
-        </label>
+        </div>
 
         <label className="form-field">
           <span>Time</span>
@@ -202,20 +192,19 @@ export default function ExpenseForm({
           {errors.transactionTime ? <span className="field-error">{errors.transactionTime}</span> : null}
         </label>
 
-        <label className="form-field">
-          <span>Category</span>
-          <SelectControl
-            disabled={isSubmitting || filteredCategories.length === 0}
+        <div className="form-field wide-panel">
+          <span>{values.type === "INCOME" ? "Income category" : "Expense category"}</span>
+          <CategoryChips
+            categories={filteredCategories}
+            disabled={isSubmitting}
             onChange={(value) => updateField("categoryId", value)}
-            options={categoryOptions}
-            placeholder="Choose category"
             value={values.categoryId}
           />
           {filteredCategories.length === 0 ? (
             <span className="field-hint">No {values.type.toLowerCase()} categories returned.</span>
           ) : null}
           {errors.categoryId ? <span className="field-error">{errors.categoryId}</span> : null}
-        </label>
+        </div>
 
         <label className="form-field">
           <span>Payment method</span>
@@ -260,10 +249,11 @@ export default function ExpenseForm({
       </label>
 
       <div className="form-actions">
-        <Button disabled={isSubmitting} type="submit">
-          <Save size={18} aria-hidden="true" />
-          {isSubmitting ? "Saving" : submitLabel}
-        </Button>
+        <GradientButton disabled={isSubmitting} type="submit">
+          {isSubmitting
+            ? "Saving"
+            : submitLabel || (values.type === "INCOME" ? "Add income" : "Add expense")}
+        </GradientButton>
       </div>
     </form>
   );

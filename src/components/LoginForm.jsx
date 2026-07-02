@@ -62,11 +62,11 @@ function ChecklistItem({ label, satisfied }) {
   return (
     <li className="flex items-center gap-2 text-sm">
       {satisfied ? (
-        <Check size={16} aria-hidden="true" className="shrink-0 text-blue-600 dark:text-blue-400" />
+        <Check size={16} aria-hidden="true" className="shrink-0 text-primary" />
       ) : (
         <Circle size={16} aria-hidden="true" className="shrink-0 text-slate-300 dark:text-slate-600" />
       )}
-      <span className={satisfied ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-500 dark:text-slate-400"}>{label}</span>
+      <span className={satisfied ? "text-primary" : "text-slate-400 dark:text-slate-500 dark:text-slate-400"}>{label}</span>
       <span className="sr-only">{satisfied ? "(met)" : "(not met)"}</span>
     </li>
   );
@@ -322,7 +322,7 @@ export default function LoginForm({
               setPassword("");
               setView("signup");
             }}
-            className="font-semibold text-blue-600 hover:underline"
+            className="font-semibold text-primary hover:underline"
           >
             Register here
           </button>
@@ -535,9 +535,9 @@ export default function LoginForm({
   // --- Success -----------------------------------------------------------
   return (
     <div className="flex flex-1 flex-col items-center justify-center text-center">
-      <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-blue-50 dark:bg-blue-950/40">
-        <CreditCard size={40} aria-hidden="true" className="text-blue-500" />
-        <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white ring-4 ring-white dark:ring-slate-900">
+      <div className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-accent dark:bg-blue-950/40">
+        <CreditCard size={40} aria-hidden="true" className="text-primary" />
+        <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-white ring-4 ring-white dark:ring-slate-900">
           <Check size={18} aria-hidden="true" />
         </span>
       </div>

@@ -29,7 +29,7 @@ export default function PillField({
       <div
         className={cn(
           "flex h-12 items-center gap-3 rounded-full border px-4 transition-colors",
-          "focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-600/25 dark:focus-within:bg-slate-800",
+          "focus-within:border-primary focus-within:bg-white focus-within:ring-2 focus-within:ring-ring/25 dark:focus-within:bg-slate-800",
           error
             ? "border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/40"
             : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800",

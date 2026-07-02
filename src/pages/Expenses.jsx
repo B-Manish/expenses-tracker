@@ -1,18 +1,21 @@
 import { ChevronLeft, ChevronRight, PlusCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import CategoryChart from "../components/CategoryChart.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import ExpenseTable from "../components/ExpenseTable.jsx";
 import FilterBar from "../components/FilterBar.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import MonthStrip from "../components/MonthStrip.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import SavedViews from "../components/SavedViews.jsx";
 import { Button } from "../components/ui/button.jsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.jsx";
 import { ApiError, api } from "../services/api.js";
-import { isAmountInput } from "../utils/currency.js";
-import { isValidDateInput } from "../utils/dateUtils.js";
+import { formatCurrencyFromPaise, isAmountInput } from "../utils/currency.js";
+import { getTodayInKolkata, isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
 import { getErrorMessage } from "../utils/validation.js";
 
@@ -168,6 +171,7 @@ export default function Expenses() {
     transaction: null,
   });
   const [notice, setNotice] = useState(location.state?.notice || "");
+  const [stats, setStats] = useState(null);
 
   const activeFilterCount = useMemo(
     () => FILTER_COUNT_KEYS.filter((key) => filters[key] !== DEFAULT_FILTERS[key]).length,
@@ -326,6 +330,28 @@ export default function Expenses() {
     };
   }, [filters, handleAuthError]);
 
+  // Feeds the spend circle and the Categories tab. Non-blocking: the page
+  // still renders if stats fail, the circle just hides.
+  useEffect(() => {
+    let isCurrent = true;
+
+    api.getStats({ from: filters.from, to: filters.to })
+      .then((data) => {
+        if (isCurrent) {
+          setStats(data);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setStats(null);
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [filters.from, filters.to]);
+
   function updateFilters(nextFilters, options = {}) {
     const params = writeFiltersToParams({
       ...DEFAULT_FILTERS,
@@ -406,7 +432,7 @@ export default function Expenses() {
     <section className="page-section" aria-labelledby="expenses-title">
       <PageHeader
         eyebrow="Transactions"
-        title="Expenses and income"
+        title="Total expenses"
         titleId="expenses-title"
         description="Search, filter, edit, and keep your ledger tidy."
         actions={(
@@ -425,6 +451,57 @@ export default function Expenses() {
           <button type="button" onClick={() => setNotice("")}>Dismiss</button>
         </p>
       ) : null}
+
+      <MonthStrip
+        value={filters.from || getTodayInKolkata()}
+        onChange={(day) => updateFilters({
+          ...filters,
+          from: day,
+          offset: "0",
+          to: day,
+        })}
+      />
+
+      {stats ? (
+        <div className="grid justify-items-center gap-4 py-2">
+          <div className="grid size-44 place-items-center rounded-full bg-muted/70 p-4">
+            <div
+              className="grid size-full place-items-center rounded-full text-primary-foreground shadow-xl"
+              style={{ background: "var(--primary-gradient)" }}
+            >
+              <strong className="px-3 text-center text-2xl font-bold text-primary-foreground">
+                {formatCurrencyFromPaise(stats.totalExpensePaise)}
+              </strong>
+            </div>
+          </div>
+          {stats.budgets?.summary?.totalBudgetedPaise > 0 ? (
+            <p className="max-w-60 text-center text-sm font-bold text-foreground">
+              You have spent {Math.round(
+                (Number(stats.budgets.summary.totalSpentPaise || 0) /
+                  Number(stats.budgets.summary.totalBudgetedPaise)) * 100,
+              )}% of your budget
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <Tabs className="grid gap-4" defaultValue="spends">
+        <TabsList className="h-auto w-full justify-start gap-8 rounded-none border-b border-border bg-transparent p-0">
+          <TabsTrigger
+            className="rounded-none border-b-2 border-transparent px-1 pb-3 text-base font-semibold data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            value="spends"
+          >
+            Spends
+          </TabsTrigger>
+          <TabsTrigger
+            className="rounded-none border-b-2 border-transparent px-1 pb-3 text-base font-semibold data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            value="categories"
+          >
+            Categories
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent className="grid gap-4" value="spends">
 
       <SavedViews
         canApplyDefault={!hasActiveFilters(filters)}
@@ -534,6 +611,15 @@ export default function Expenses() {
           />
         ) : null}
       </section>
+
+        </TabsContent>
+
+        <TabsContent value="categories">
+          <section className="panel" aria-label="Spending by category">
+            <CategoryChart items={stats?.categoryBreakdown || []} />
+          </section>
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         confirmLabel="Delete transaction"

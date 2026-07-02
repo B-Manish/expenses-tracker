@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BellRing,
   CalendarClock,
   CalendarDays,
   CircleDollarSign,
@@ -8,6 +9,7 @@ import {
   PiggyBank,
   ReceiptText,
   Scale,
+  Tags,
   TrendingDown,
   TrendingUp,
   Trophy,
@@ -370,6 +372,7 @@ export default function Dashboard() {
       value: formatCurrencyFromPaise(stats.totalIncomePaise),
     },
     {
+      className: "hero",
       detail: periodLabel,
       icon: WalletCards,
       label: "Total expense",
@@ -430,8 +433,7 @@ export default function Dashboard() {
   return (
     <section className="page-section" aria-labelledby="dashboard-title">
       <PageHeader
-        eyebrow="Overview"
-        title="Dashboard"
+        title="Overview"
         titleId="dashboard-title"
         description="Track your spending, income, and recurring payments in one calm view."
         actions={(
@@ -447,6 +449,7 @@ export default function Dashboard() {
       <div className="summary-grid dashboard-summary-grid">
         {cards.map((card) => (
           <StatCard
+            className={card.className || ""}
             detail={card.detail}
             icon={card.icon}
             key={card.label}
@@ -456,6 +459,21 @@ export default function Dashboard() {
           />
         ))}
       </div>
+
+      <nav className="quick-actions" aria-label="Quick actions">
+        <Link className="quick-pill primary" to="/budgets">
+          <PiggyBank size={18} aria-hidden="true" />
+          Budgets
+        </Link>
+        <Link className="quick-pill" to="/recurring-expenses">
+          <BellRing size={18} aria-hidden="true" />
+          Recurring
+        </Link>
+        <Link className="quick-pill" to="/categories">
+          <Tags size={18} aria-hidden="true" />
+          Categories
+        </Link>
+      </nav>
 
       <div className="insight-grid">
         {insights.map(({ detail, icon: Icon, label, tone, value }) => (
@@ -537,7 +555,7 @@ export default function Dashboard() {
         </DashboardCard>
 
         <DashboardCard
-          title="Recent transactions"
+          title="Latest entries"
           titleId="recent-title"
           description="The latest entries across expenses and income."
           actions={(

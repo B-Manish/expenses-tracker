@@ -13,9 +13,9 @@ export default function Logo({ className }) {
         role="img"
         aria-label="Cashly"
       >
-        <rect x="6" y="9" width="24" height="6" rx="3" transform="skewX(-20)" fill="#2563eb" />
-        <rect x="2" y="17" width="24" height="6" rx="3" transform="skewX(-20)" fill="#3b82f6" />
-        <rect x="-2" y="25" width="24" height="6" rx="3" transform="skewX(-20)" fill="#60a5fa" />
+        <rect x="6" y="9" width="24" height="6" rx="3" transform="skewX(-20)" fill="#1f2ce0" />
+        <rect x="2" y="17" width="24" height="6" rx="3" transform="skewX(-20)" fill="#2b3ff2" />
+        <rect x="-2" y="25" width="24" height="6" rx="3" transform="skewX(-20)" fill="#4053ff" />
       </svg>
       <span className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
         Cashly
