@@ -299,7 +299,10 @@
   }
 
   .app-main {
-    @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-8 pt-5;
+    /* Extra bottom padding clears the centre FAB, which overlaps ~32px into
+       the scroll area's bottom edge; the last card must scroll fully above it.
+       The desktop block (>=1024px) resets this to py-8 (no bottom nav/FAB). */
+    @apply min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-20 pt-5;
     overscroll-behavior: contain;
   }
 
@@ -1353,6 +1356,35 @@ h1 {
   .recurring-row .row-actions {
     grid-column: 2 / -1;
     @apply justify-end;
+  }
+
+  /* Transaction cards: the 3-column metadata grid crams category/payment/date
+     into slivers at phone widths, so drop to two columns and give Date & time
+     its own full-width row (stops "21 Jul / 2026, / 4:05 pm" from breaking one
+     token per line). */
+  .transaction-meta {
+    @apply grid-cols-2;
+  }
+
+  .transaction-meta > div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  /* Let a long title wrap to a second line instead of being clipped, while the
+     type badge stays pinned to the top-right and never shrinks. */
+  .transaction-card-title {
+    @apply items-start;
+  }
+
+  .transaction-card-title strong {
+    @apply whitespace-normal break-words;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* 44px minimum touch targets for the per-card edit/delete buttons. */
+  .transaction-card .row-actions button {
+    @apply size-11;
   }
 }
 
