@@ -27,7 +27,7 @@ export async function onRequest(context) {
     return failure("Database binding is not configured", 500);
   }
 
-  const throttleStatus = getThrottleStatus(request);
+  const throttleStatus = await getThrottleStatus(env.DB, request);
 
   if (throttleStatus.blocked) {
     return failure("Too many failed login attempts", 429, {
@@ -56,7 +56,7 @@ export async function onRequest(context) {
   try {
     user = await verifyPasswordLogin(env.DB, env, validation);
   } catch {
-    const failureStatus = recordFailedLogin(request);
+    const failureStatus = await recordFailedLogin(env.DB, request);
 
     if (failureStatus.blocked) {
       return failure("Too many failed login attempts", 429, {
@@ -67,7 +67,7 @@ export async function onRequest(context) {
     return failure("Invalid email or password", 401);
   }
 
-  clearFailedLogins(request);
+  await clearFailedLogins(env.DB, request);
 
   try {
     const sessionCookie = await createSessionCookie(request, env, user.id);

@@ -26,7 +26,7 @@ export async function onRequest(context) {
     return failure("Password reset storage is not configured", 500);
   }
 
-  const throttleStatus = getPasswordResetVerifyThrottleStatus(request);
+  const throttleStatus = await getPasswordResetVerifyThrottleStatus(env.DB, request);
 
   if (throttleStatus.blocked) {
     return failure("Too many verification attempts", 429, {
@@ -62,7 +62,7 @@ export async function onRequest(context) {
   }
 
   if (!verified.ok) {
-    const failureStatus = recordPasswordResetVerifyFailure(request);
+    const failureStatus = await recordPasswordResetVerifyFailure(env.DB, request);
 
     if (failureStatus.blocked) {
       return failure("Too many verification attempts", 429, {
@@ -73,7 +73,7 @@ export async function onRequest(context) {
     return failure(verified.message, verified.status);
   }
 
-  clearPasswordResetVerifyFailures(request);
+  await clearPasswordResetVerifyFailures(env.DB, request);
 
   try {
     const resetSession = await createResetPasswordToken(env, email);

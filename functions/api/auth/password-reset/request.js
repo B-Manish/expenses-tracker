@@ -3,6 +3,7 @@ import { failure, methodNotAllowed, success } from "../../../_shared/json.js";
 import { readJsonBody } from "../../../_shared/http.js";
 import { assertUserEmailExists } from "../../../_shared/emailAuth.js";
 import {
+  CODE_TTL_MINUTES,
   createResetCode,
   deletePasswordResetCode,
   getPasswordResetEmailConfigStatus,
@@ -36,7 +37,7 @@ export async function onRequest(context) {
     return failure(emailStatus.message, 500);
   }
 
-  const throttleStatus = recordPasswordResetRequest(request);
+  const throttleStatus = await recordPasswordResetRequest(env.DB, request);
 
   if (throttleStatus.blocked) {
     return failure("Too many password reset requests", 429, {
@@ -58,10 +59,23 @@ export async function onRequest(context) {
     return failure("Email is required", 400);
   }
 
+  // Do not reveal whether the account exists: unknown emails get the same
+  // masked success response without a code being stored or sent.
+  let accountExists = true;
+
   try {
     await assertUserEmailExists(env.DB, email);
   } catch {
-    return failure("No account exists for this email", 404);
+    accountExists = false;
+  }
+
+  const genericResponse = success({
+    email: maskEmail(email),
+    expiresInMinutes: CODE_TTL_MINUTES,
+  });
+
+  if (!accountExists) {
+    return genericResponse;
   }
 
   const code = createResetCode();

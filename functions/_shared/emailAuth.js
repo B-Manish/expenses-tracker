@@ -1,11 +1,13 @@
 import { z } from "zod";
-import { conflict, internalServerError, unauthorized } from "./errors.js";
+import { conflict, internalServerError, isDevelopmentEnv, unauthorized } from "./errors.js";
 import { parseValidated } from "./validation.js";
 
 const CODE_LENGTH = 6;
 const CODE_TTL_MINUTES = 10;
 const SIGNUP_PURPOSE = "SIGNUP";
 const SALT_BYTES = 16;
+const HASH_BYTES = 32;
+const PBKDF2_ITERATIONS = 210000;
 const encoder = new TextEncoder();
 
 const emailSchema = z.object({
@@ -137,21 +139,48 @@ async function hmacSha256Bytes(value, secret) {
   return new Uint8Array(signature);
 }
 
+// PBKDF2 makes offline cracking of a leaked hash slow; the SESSION_SECRET
+// pepper is folded into the input as a second, secret-only defense layer.
+async function pbkdf2Bytes(password, salt, iterations, pepper) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(`${pepper}:${password}`),
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"],
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", iterations, salt },
+    key,
+    HASH_BYTES * 8,
+  );
+
+  return new Uint8Array(bits);
+}
+
 async function hashUserPassword(env, password) {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_BYTES));
   const saltText = bytesToBase64Url(salt);
-  const hash = await hmacSha256Bytes(`${saltText}:${password}`, getSessionSecret(env));
+  const hash = await pbkdf2Bytes(
+    password,
+    salt,
+    PBKDF2_ITERATIONS,
+    getSessionSecret(env),
+  );
 
   return JSON.stringify({
-    algorithm: "hmac-sha256-v1",
+    algorithm: "pbkdf2-sha256-v1",
+    iterations: PBKDF2_ITERATIONS,
     salt: saltText,
     hash: bytesToBase64Url(hash),
   });
 }
 
+// Returns { valid, needsRehash }. Legacy hmac-sha256-v1 hashes still verify so
+// existing accounts are not locked out; callers upgrade them on next login.
 async function verifyUserPassword(env, storedValue, password) {
   if (!storedValue) {
-    return typeof env?.APP_PASSWORD === "string" && password === env.APP_PASSWORD;
+    return { valid: false, needsRehash: false };
   }
 
   let stored;
@@ -159,17 +188,36 @@ async function verifyUserPassword(env, storedValue, password) {
   try {
     stored = JSON.parse(storedValue);
   } catch {
-    return false;
+    return { valid: false, needsRehash: false };
   }
 
-  if (stored?.algorithm !== "hmac-sha256-v1" || !stored.salt || !stored.hash) {
-    return false;
+  if (!stored?.salt || !stored.hash) {
+    return { valid: false, needsRehash: false };
   }
 
-  const actualHash = await hmacSha256Bytes(`${stored.salt}:${password}`, getSessionSecret(env));
   const expectedHash = base64UrlToBytes(stored.hash);
 
-  return constantTimeEqual(actualHash, expectedHash);
+  if (stored.algorithm === "pbkdf2-sha256-v1") {
+    const actualHash = await pbkdf2Bytes(
+      password,
+      base64UrlToBytes(stored.salt),
+      Number(stored.iterations) || PBKDF2_ITERATIONS,
+      getSessionSecret(env),
+    );
+
+    return { valid: constantTimeEqual(actualHash, expectedHash), needsRehash: false };
+  }
+
+  if (stored.algorithm === "hmac-sha256-v1") {
+    const actualHash = await hmacSha256Bytes(`${stored.salt}:${password}`, getSessionSecret(env));
+
+    return {
+      valid: constantTimeEqual(actualHash, expectedHash),
+      needsRehash: true,
+    };
+  }
+
+  return { valid: false, needsRehash: false };
 }
 
 async function getUserByEmail(db, email) {
@@ -212,7 +260,7 @@ function getEmailConfigStatus(env) {
 }
 
 async function sendVerificationCode(env, email, code) {
-  if (env?.EMAIL_DEV_SHOW_CODES === "true") {
+  if (env?.EMAIL_DEV_SHOW_CODES === "true" && isDevelopmentEnv(env)) {
     return {
       delivered: false,
       devCode: code,
@@ -393,34 +441,38 @@ async function seedUserDefaults(db, userId) {
   await insertDefaultSettings(db, userId);
 }
 
+// A fixed dummy hash lets the not-found path do the same PBKDF2 work as a real
+// verification, so login response timing does not reveal whether an email exists.
+const DUMMY_PASSWORD_HASH = JSON.stringify({
+  algorithm: "pbkdf2-sha256-v1",
+  iterations: PBKDF2_ITERATIONS,
+  salt: "AAAAAAAAAAAAAAAAAAAAAA",
+  hash: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+});
+
 export async function verifyPasswordLogin(db, env, input) {
   const user = await getUserByEmail(db, input.email);
+  const { valid, needsRehash } = await verifyUserPassword(
+    env,
+    user?.password_hash ?? DUMMY_PASSWORD_HASH,
+    input.password,
+  );
 
-  if (!user) {
+  if (!user || !valid) {
     throw unauthorized("Invalid email or password.");
   }
 
-  if (!user.password_hash && input.password === user.email) {
-    const passwordHash = await hashUserPassword(env, input.password);
-
-    await db
-      .prepare(`
-        UPDATE users
-        SET password_hash = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `)
-      .bind(passwordHash, user.id)
-      .run();
-
-    return {
-      ...user,
-      password_hash: passwordHash,
-    };
-  }
-
-  if (!(await verifyUserPassword(env, user.password_hash, input.password))) {
-    throw unauthorized("Invalid email or password.");
+  if (needsRehash) {
+    try {
+      await db
+        .prepare(
+          "UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        )
+        .bind(await hashUserPassword(env, input.password), user.id)
+        .run();
+    } catch {
+      // Upgrade is best-effort; a failed rehash must not block a valid login.
+    }
   }
 
   return user;
@@ -456,7 +508,15 @@ export async function setUserPassword(db, env, email, password) {
 }
 
 export async function requestSignupCode(db, env, input) {
-  await assertSignupAvailable(db, input.email);
+  // Do not reveal whether the email is already registered: an existing account
+  // returns the same shape without storing or sending a code.
+  if (await getUserByEmail(db, input.email)) {
+    return {
+      email: input.email,
+      expiresInMinutes: CODE_TTL_MINUTES,
+      delivered: true,
+    };
+  }
 
   const code = createCode();
   await storeCode(db, env, input.email, SIGNUP_PURPOSE, code, {

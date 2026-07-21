@@ -221,6 +221,14 @@ export async function verifySession(request, env, now = Math.floor(Date.now() / 
     };
   }
 
+  if (typeof session?.userId !== "string" || !session.userId.trim()) {
+    return {
+      authenticated: false,
+      reason: "invalid-user",
+      status: 401,
+    };
+  }
+
   if (!Number.isInteger(session?.exp) || session.exp <= now) {
     return {
       authenticated: false,

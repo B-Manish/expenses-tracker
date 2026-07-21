@@ -1,27 +1,20 @@
-import { getClientKey } from "./security.js";
+import { deleteEntry, getClientKey, readEntry, writeEntry } from "./rateLimit.js";
 
-export const DEFAULT_RESET_EMAIL_TO = "batchumanish@gmail.com";
+const RESET_REQUEST_SCOPE = "reset-request";
+const RESET_VERIFY_SCOPE = "reset-verify";
 
 const CODE_LENGTH = 6;
-const CODE_TTL_MINUTES = 10;
+export const CODE_TTL_MINUTES = 10;
 const CODE_TTL_MS = CODE_TTL_MINUTES * 60 * 1000;
 const RESET_TOKEN_TTL_MINUTES = 15;
+const RESET_TOKEN_TTL_MS = RESET_TOKEN_TTL_MINUTES * 60 * 1000;
+const RESET_TOKEN_BYTES = 32;
 const RESET_REQUEST_COOLDOWN_MS = 60 * 1000;
 const RESET_REQUEST_WINDOW_MS = 60 * 60 * 1000;
 const RESET_REQUEST_MAX_ATTEMPTS = 5;
 const RESET_VERIFY_WINDOW_MS = 10 * 60 * 1000;
 const RESET_VERIFY_MAX_FAILURES = 10;
 const encoder = new TextEncoder();
-
-const resetRequestAttempts =
-  globalThis.__expensesTrackerPasswordResetRequests ??
-  new Map();
-const resetVerifyFailures =
-  globalThis.__expensesTrackerPasswordResetVerifyFailures ??
-  new Map();
-
-globalThis.__expensesTrackerPasswordResetRequests = resetRequestAttempts;
-globalThis.__expensesTrackerPasswordResetVerifyFailures = resetVerifyFailures;
 
 function getSessionSecret(env) {
   return typeof env?.SESSION_SECRET === "string" && env.SESSION_SECRET
@@ -48,25 +41,6 @@ function base64UrlEncodeBytes(bytes) {
     .replaceAll("=", "");
 }
 
-function base64UrlEncodeText(value) {
-  return base64UrlEncodeBytes(encoder.encode(value));
-}
-
-function base64UrlDecodeText(value) {
-  const padded = value.replaceAll("-", "+").replaceAll("_", "/").padEnd(
-    Math.ceil(value.length / 4) * 4,
-    "=",
-  );
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-
-  return new TextDecoder().decode(bytes);
-}
-
 async function hmacSha256(value, secret) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -90,20 +64,18 @@ async function hashResetCode(env, email, code) {
   return hmacSha256(`${email}:${code}`, secret);
 }
 
+async function hashResetToken(token) {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(token));
+
+  return toHex(new Uint8Array(digest));
+}
+
 function retryAfterSeconds(milliseconds) {
   return Math.max(1, Math.ceil(milliseconds / 1000));
 }
 
 function isWindowFresh(entry, now, windowMs) {
   return entry && now - entry.windowStart < windowMs;
-}
-
-export function getPasswordResetRecipient(env) {
-  const configured = typeof env?.RESET_EMAIL_TO === "string"
-    ? env.RESET_EMAIL_TO.trim()
-    : "";
-
-  return configured || DEFAULT_RESET_EMAIL_TO;
 }
 
 export function isPasswordResetConfigured(env) {
@@ -168,9 +140,9 @@ export function normalizeResetCode(value) {
   return /^\d{6}$/.test(code) ? code : null;
 }
 
-export function recordPasswordResetRequest(request, now = Date.now()) {
+export async function recordPasswordResetRequest(db, request, now = Date.now()) {
   const key = getClientKey(request);
-  const current = resetRequestAttempts.get(key);
+  const current = await readEntry(db, RESET_REQUEST_SCOPE, key);
 
   if (current?.blockedUntil && current.blockedUntil > now) {
     return {
@@ -196,7 +168,7 @@ export function recordPasswordResetRequest(request, now = Date.now()) {
     ? windowStart + RESET_REQUEST_WINDOW_MS
     : 0;
 
-  resetRequestAttempts.set(key, {
+  await writeEntry(db, RESET_REQUEST_SCOPE, key, {
     attempts,
     blockedUntil,
     lastAttemptAt: now,
@@ -213,12 +185,12 @@ export function recordPasswordResetRequest(request, now = Date.now()) {
   return { blocked: false };
 }
 
-export function getPasswordResetVerifyThrottleStatus(request, now = Date.now()) {
+export async function getPasswordResetVerifyThrottleStatus(db, request, now = Date.now()) {
   const key = getClientKey(request);
-  const current = resetVerifyFailures.get(key);
+  const current = await readEntry(db, RESET_VERIFY_SCOPE, key);
 
   if (!current || now - current.windowStart >= RESET_VERIFY_WINDOW_MS) {
-    resetVerifyFailures.delete(key);
+    await deleteEntry(db, RESET_VERIFY_SCOPE, key);
     return { blocked: false };
   }
 
@@ -232,9 +204,9 @@ export function getPasswordResetVerifyThrottleStatus(request, now = Date.now()) 
   return { blocked: false };
 }
 
-export function recordPasswordResetVerifyFailure(request, now = Date.now()) {
+export async function recordPasswordResetVerifyFailure(db, request, now = Date.now()) {
   const key = getClientKey(request);
-  const current = resetVerifyFailures.get(key);
+  const current = await readEntry(db, RESET_VERIFY_SCOPE, key);
   const windowStart = isWindowFresh(current, now, RESET_VERIFY_WINDOW_MS)
     ? current.windowStart
     : now;
@@ -242,7 +214,7 @@ export function recordPasswordResetVerifyFailure(request, now = Date.now()) {
     ? current.failures + 1
     : 1;
 
-  resetVerifyFailures.set(key, { failures, windowStart });
+  await writeEntry(db, RESET_VERIFY_SCOPE, key, { failures, windowStart });
 
   if (failures >= RESET_VERIFY_MAX_FAILURES) {
     return {
@@ -254,8 +226,8 @@ export function recordPasswordResetVerifyFailure(request, now = Date.now()) {
   return { blocked: false };
 }
 
-export function clearPasswordResetVerifyFailures(request) {
-  resetVerifyFailures.delete(getClientKey(request));
+export async function clearPasswordResetVerifyFailures(db, request) {
+  await deleteEntry(db, RESET_VERIFY_SCOPE, getClientKey(request));
 }
 
 export async function storePasswordResetCode(env, email, code, now = new Date()) {
@@ -333,45 +305,48 @@ export async function consumePasswordResetCode(env, email, code, now = new Date(
   return { ok: true };
 }
 
-export async function createResetPasswordToken(env, email) {
-  const secret = getSessionSecret(env);
-
-  if (!secret) {
-    throw new Error("SESSION_SECRET is not configured");
+export async function createResetPasswordToken(env, email, now = new Date()) {
+  if (!env?.DB) {
+    throw new Error("Password reset storage is not configured");
   }
 
-  const issuedAt = Math.floor(Date.now() / 1000);
-  const expiresAt = issuedAt + (RESET_TOKEN_TTL_MINUTES * 60);
-  const payload = base64UrlEncodeText(
-    JSON.stringify({
-      purpose: "password-reset",
-      email,
-      iat: issuedAt,
-      exp: expiresAt,
-    }),
+  const token = base64UrlEncodeBytes(
+    crypto.getRandomValues(new Uint8Array(RESET_TOKEN_BYTES)),
   );
-  const signature = await hmacSha256(payload, secret);
+  const tokenHash = await hashResetToken(token);
+  const nowIso = now.toISOString();
+  const expiresAt = new Date(now.getTime() + RESET_TOKEN_TTL_MS).toISOString();
+
+  await env.DB.prepare(`
+    DELETE FROM password_reset_tokens
+    WHERE expires_at <= ? OR consumed_at IS NOT NULL
+  `)
+    .bind(nowIso)
+    .run();
+
+  await env.DB.prepare(`
+    INSERT INTO password_reset_tokens (email, token_hash, expires_at, created_at)
+    VALUES (?, ?, ?, ?)
+  `)
+    .bind(email, tokenHash, expiresAt, nowIso)
+    .run();
 
   return {
-    token: `${payload}.${signature}`,
+    token,
     expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
   };
 }
 
-export async function consumeResetPasswordToken(env, token, now = Math.floor(Date.now() / 1000)) {
-  const secret = getSessionSecret(env);
-
-  if (!secret) {
+export async function consumeResetPasswordToken(env, token, now = new Date()) {
+  if (!env?.DB) {
     return {
       ok: false,
-      message: "Authentication is not configured",
+      message: "Password reset storage is not configured",
       status: 500,
     };
   }
 
-  const [payload, signature, extra] = typeof token === "string" ? token.split(".") : [];
-
-  if (!payload || !signature || extra) {
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(token)) {
     return {
       ok: false,
       message: "Reset session is invalid or expired",
@@ -379,34 +354,20 @@ export async function consumeResetPasswordToken(env, token, now = Math.floor(Dat
     };
   }
 
-  const expectedSignature = await hmacSha256(payload, secret);
+  const nowIso = now.toISOString();
+  const tokenHash = await hashResetToken(token);
+  const record = await env.DB.prepare(`
+    UPDATE password_reset_tokens
+    SET consumed_at = ?
+    WHERE token_hash = ?
+      AND consumed_at IS NULL
+      AND expires_at > ?
+    RETURNING email
+  `)
+    .bind(nowIso, tokenHash, nowIso)
+    .first();
 
-  if (signature !== expectedSignature) {
-    return {
-      ok: false,
-      message: "Reset session is invalid or expired",
-      status: 401,
-    };
-  }
-
-  let parsed;
-
-  try {
-    parsed = JSON.parse(base64UrlDecodeText(payload));
-  } catch {
-    return {
-      ok: false,
-      message: "Reset session is invalid or expired",
-      status: 401,
-    };
-  }
-
-  if (
-    parsed?.purpose !== "password-reset" ||
-    typeof parsed?.email !== "string" ||
-    !Number.isInteger(parsed?.exp) ||
-    parsed.exp <= now
-  ) {
+  if (!record?.email) {
     return {
       ok: false,
       message: "Reset session is invalid or expired",
@@ -416,7 +377,7 @@ export async function consumeResetPasswordToken(env, token, now = Math.floor(Dat
 
   return {
     ok: true,
-    email: parsed.email,
+    email: record.email,
   };
 }
 
