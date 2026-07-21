@@ -236,6 +236,9 @@ export default function Categories() {
         errors: validation.errors,
         message: getFirstValidationError(validation.errors),
       }));
+      window.requestAnimationFrame(() => {
+        formPanelRef.current?.querySelector('[aria-invalid="true"]')?.focus();
+      });
       return;
     }
 
@@ -461,6 +464,8 @@ export default function Categories() {
             <label className="form-field">
               <span>Name</span>
               <Input
+                aria-describedby={formState.errors.name ? "category-name-error" : undefined}
+                aria-invalid={formState.errors.name ? true : undefined}
                 autoComplete="off"
                 disabled={isSubmitting}
                 maxLength={80}
@@ -471,7 +476,7 @@ export default function Categories() {
                 type="text"
                 value={formState.values.name}
               />
-              {formState.errors.name ? <span className="field-error">{formState.errors.name}</span> : null}
+              {formState.errors.name ? <span className="field-error" id="category-name-error">{formState.errors.name}</span> : null}
             </label>
 
             <label className="form-field">
@@ -509,6 +514,8 @@ export default function Categories() {
                   value={formState.values.color || "#64748b"}
                 />
                 <Input
+                  aria-describedby={formState.errors.color ? "category-color-error" : undefined}
+                  aria-invalid={formState.errors.color ? true : undefined}
                   aria-label="Category color hex value"
                   autoComplete="off"
                   disabled={isSubmitting}
@@ -519,12 +526,14 @@ export default function Categories() {
                   value={formState.values.color}
                 />
               </div>
-              {formState.errors.color ? <span className="field-error">{formState.errors.color}</span> : null}
+              {formState.errors.color ? <span className="field-error" id="category-color-error">{formState.errors.color}</span> : null}
             </label>
 
             <label className="form-field">
               <span>Icon key</span>
               <Input
+                aria-describedby={formState.errors.icon ? "category-icon-error" : undefined}
+                aria-invalid={formState.errors.icon ? true : undefined}
                 autoComplete="off"
                 disabled={isSubmitting}
                 maxLength={64}
@@ -534,7 +543,7 @@ export default function Categories() {
                 value={formState.values.icon}
               />
               <span className="field-hint">Lowercase letters, numbers, and hyphens.</span>
-              {formState.errors.icon ? <span className="field-error">{formState.errors.icon}</span> : null}
+              {formState.errors.icon ? <span className="field-error" id="category-icon-error">{formState.errors.icon}</span> : null}
             </label>
           </div>
 

@@ -173,7 +173,11 @@ export default function Expenses() {
     transaction: null,
   });
   const [notice, setNotice] = useState(location.state?.notice || "");
-  const [stats, setStats] = useState(null);
+  const [statsState, setStatsState] = useState({
+    data: null,
+    error: "",
+    status: "loading",
+  });
   // Bumped after mutations so the stats circle and category chart refetch.
   const [statsVersion, setStatsVersion] = useState(0);
   // Survives tab switches (which unmount SavedViews) so the default saved
@@ -347,20 +351,21 @@ export default function Expenses() {
   }, [filters, handleAuthError]);
 
   // Feeds the spend circle and the Categories tab. Non-blocking: the page
-  // still renders if stats fail, the circle just hides. statsVersion forces a
-  // refetch after mutations (e.g. deleting a transaction).
+  // still renders if stats fail, but failures show an error instead of
+  // masquerading as "no spending". statsVersion forces a refetch after
+  // mutations (e.g. deleting a transaction).
   useEffect(() => {
     let isCurrent = true;
 
     api.getStats({ from: filters.from, to: filters.to })
       .then((data) => {
         if (isCurrent) {
-          setStats(data);
+          setStatsState({ data, error: "", status: "ready" });
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (isCurrent) {
-          setStats(null);
+          setStatsState({ data: null, error: getErrorMessage(error), status: "error" });
         }
       });
 
@@ -465,8 +470,8 @@ export default function Expenses() {
   return (
     <section className="page-section" aria-labelledby="expenses-title">
       <PageHeader
-        eyebrow="Transactions"
-        title="Total expenses"
+        eyebrow="Ledger"
+        title="Transactions"
         titleId="expenses-title"
         description="Search, filter, edit, and keep your ledger tidy."
         actions={(
@@ -502,7 +507,16 @@ export default function Expenses() {
         })}
       />
 
-      {stats ? (
+      {statsState.status === "error" ? (
+        <ErrorState
+          actionLabel="Retry"
+          message={statsState.error}
+          onRetry={() => setStatsVersion((current) => current + 1)}
+          title="Statistics unavailable"
+        />
+      ) : null}
+
+      {statsState.data ? (
         <div className="grid justify-items-center gap-4 py-2">
           <div className="grid size-44 place-items-center rounded-full bg-muted/70 p-4">
             <div
@@ -510,18 +524,18 @@ export default function Expenses() {
               style={{ background: "var(--primary-gradient)" }}
             >
               <strong className="px-3 text-center text-2xl font-bold text-primary-foreground">
-                {formatCurrencyFromPaise(stats.totalExpensePaise)}
+                {formatCurrencyFromPaise(statsState.data.totalExpensePaise)}
               </strong>
             </div>
           </div>
           <p className="text-center text-xs font-medium text-muted-foreground">
             Expenses: {formatDateRange(filters.from, filters.to)}
           </p>
-          {stats.budgets?.summary?.totalBudgetedPaise > 0 ? (
+          {statsState.data.budgets?.summary?.totalBudgetedPaise > 0 ? (
             <p className="max-w-60 text-center text-sm font-bold text-foreground">
               You have spent {Math.round(
-                (Number(stats.budgets.summary.totalSpentPaise || 0) /
-                  Number(stats.budgets.summary.totalBudgetedPaise)) * 100,
+                (Number(statsState.data.budgets.summary.totalSpentPaise || 0) /
+                  Number(statsState.data.budgets.summary.totalBudgetedPaise)) * 100,
               )}% of your monthly budget
             </p>
           ) : null}
@@ -663,7 +677,16 @@ export default function Expenses() {
 
         <TabsContent value="categories">
           <section className="panel" aria-label="Spending by category">
-            <CategoryChart items={stats?.categoryBreakdown || []} />
+            {statsState.status === "error" ? (
+              <ErrorState
+                actionLabel="Retry"
+                message={statsState.error}
+                onRetry={() => setStatsVersion((current) => current + 1)}
+                title="Statistics unavailable"
+              />
+            ) : (
+              <CategoryChart items={statsState.data?.categoryBreakdown || []} />
+            )}
           </section>
         </TabsContent>
       </Tabs>

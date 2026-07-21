@@ -1216,6 +1216,39 @@
   .clear-all-button {
     @apply text-muted-foreground;
   }
+
+  .skip-link {
+    @apply absolute z-50 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground;
+    left: -9999px;
+    top: 0.75rem;
+  }
+
+  .skip-link:focus {
+    left: 0.75rem;
+  }
+
+  /* Programmatic heading focus on route change should not draw a focus ring. */
+  .app-main h1:focus {
+    outline: none;
+  }
+
+  .chart-data-details summary {
+    @apply cursor-pointer text-sm font-medium text-primary;
+  }
+
+  .chart-data-details table {
+    @apply mt-2 w-full border-collapse text-sm;
+  }
+
+  .chart-data-details th,
+  .chart-data-details td {
+    @apply border-b px-2 py-1.5 text-left;
+  }
+
+  .chart-data-details td:last-child,
+  .chart-data-details th:last-child {
+    @apply text-right tabular-nums;
+  }
 }
 
 @layer utilities {
@@ -1308,6 +1341,19 @@ h1 {
 .transaction-form .form-actions,
 .settings-form .form-actions {
   @apply flex-col items-stretch;
+}
+
+/* Narrow phones: recurring rows drop to three columns and move the action
+   buttons onto their own row so long amounts cannot overflow. */
+@media (max-width: 480px) {
+  .recurring-row {
+    grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  }
+
+  .recurring-row .row-actions {
+    grid-column: 2 / -1;
+    @apply justify-end;
+  }
 }
 
 /* Desktop (>=1024px): sidebar + full-width multi-column layout. Overrides the

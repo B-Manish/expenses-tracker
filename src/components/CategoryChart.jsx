@@ -85,7 +85,8 @@ export default function CategoryChart({ items = [] }) {
       </div>
 
       {/* The list below is the legend; the in-chart Legend was removed so a
-          long category tail cannot squash the pie inside its fixed frame. */}
+          long category tail cannot squash the pie inside its fixed frame.
+          Categories past the top six stay accessible in the details block. */}
       <ul className="category-list chart-detail-list">
         {data.slice(0, 6).map((item) => (
           <li className="category-row" key={item.category}>
@@ -94,16 +95,23 @@ export default function CategoryChart({ items = [] }) {
             <strong>{formatCurrencyFromPaise(item.amountPaise)}</strong>
           </li>
         ))}
-        {data.length > 6 ? (
-          <li className="category-row" key="__more">
-            <span className="category-color bg-muted" aria-hidden="true" />
-            <span>{data.length - 6} more {data.length - 6 === 1 ? "category" : "categories"}</span>
-            <strong>
-              {formatCurrencyFromPaise(data.slice(6).reduce((sum, item) => sum + item.amountPaise, 0))}
-            </strong>
-          </li>
-        ) : null}
       </ul>
+      {data.length > 6 ? (
+        <details className="chart-data-details">
+          <summary>
+            {data.length - 6} more {data.length - 6 === 1 ? "category" : "categories"} ({formatCurrencyFromPaise(data.slice(6).reduce((sum, item) => sum + item.amountPaise, 0))})
+          </summary>
+          <ul className="category-list chart-detail-list">
+            {data.slice(6).map((item) => (
+              <li className="category-row" key={item.category}>
+                <span className="category-color" style={{ backgroundColor: item.color }} aria-hidden="true" />
+                <span>{item.category}</span>
+                <strong>{formatCurrencyFromPaise(item.amountPaise)}</strong>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </div>
   );
 }

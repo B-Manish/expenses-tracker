@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { paiseToRupeesInputValue } from "../utils/currency.js";
 import { getCurrentTimeInKolkata, getTodayInKolkata } from "../utils/dateUtils.js";
 import { getFirstValidationError, validateTransactionForm } from "../utils/validation.js";
@@ -56,6 +56,7 @@ export default function ExpenseForm({
   serverError = "",
   submitLabel = "",
 }) {
+  const formRef = useRef(null);
   const [values, setValues] = useState(() => buildInitialValues(initialTransaction));
   const [errors, setErrors] = useState({});
   const [formMessage, setFormMessage] = useState("");
@@ -108,6 +109,9 @@ export default function ExpenseForm({
     if (!validation.isValid) {
       setErrors(validation.errors);
       setFormMessage(getFirstValidationError(validation.errors));
+      window.requestAnimationFrame(() => {
+        formRef.current?.querySelector('[aria-invalid="true"]')?.focus();
+      });
       return;
     }
 
@@ -116,7 +120,7 @@ export default function ExpenseForm({
   }
 
   return (
-    <form className="transaction-form panel" noValidate onSubmit={handleSubmit}>
+    <form className="transaction-form panel" noValidate onSubmit={handleSubmit} ref={formRef}>
       {serverError ? <p className="form-error" role="alert">{serverError}</p> : null}
       {formMessage ? <p className="form-error" role="alert">{formMessage}</p> : null}
 
@@ -144,6 +148,8 @@ export default function ExpenseForm({
         <label className="form-field">
           <span>Title</span>
           <Input
+            aria-describedby={errors.title ? "tx-title-error" : undefined}
+            aria-invalid={errors.title ? true : undefined}
             autoComplete="off"
             disabled={isSubmitting}
             maxLength={120}
@@ -153,12 +159,14 @@ export default function ExpenseForm({
             type="text"
             value={values.title}
           />
-          {errors.title ? <span className="field-error">{errors.title}</span> : null}
+          {errors.title ? <span className="field-error" id="tx-title-error">{errors.title}</span> : null}
         </label>
 
         <label className="form-field">
           <span>Amount</span>
           <Input
+            aria-describedby={errors.amount ? "tx-amount-error" : undefined}
+            aria-invalid={errors.amount ? true : undefined}
             autoComplete="off"
             disabled={isSubmitting}
             inputMode="decimal"
@@ -168,7 +176,7 @@ export default function ExpenseForm({
             type="text"
             value={values.amount}
           />
-          {errors.amount ? <span className="field-error">{errors.amount}</span> : null}
+          {errors.amount ? <span className="field-error" id="tx-amount-error">{errors.amount}</span> : null}
         </label>
 
         <div className="form-field wide-panel">
@@ -179,6 +187,8 @@ export default function ExpenseForm({
             value={values.transactionDate}
           />
           <Input
+            aria-describedby={errors.transactionDate ? "tx-date-error" : undefined}
+            aria-invalid={errors.transactionDate ? true : undefined}
             aria-label="Transaction date"
             disabled={isSubmitting}
             onChange={(event) => updateField("transactionDate", event.target.value)}
@@ -186,19 +196,21 @@ export default function ExpenseForm({
             type="date"
             value={values.transactionDate}
           />
-          {errors.transactionDate ? <span className="field-error">{errors.transactionDate}</span> : null}
+          {errors.transactionDate ? <span className="field-error" id="tx-date-error">{errors.transactionDate}</span> : null}
         </div>
 
         <label className="form-field">
           <span>Time</span>
           <Input
+            aria-describedby={errors.transactionTime ? "tx-time-error" : undefined}
+            aria-invalid={errors.transactionTime ? true : undefined}
             disabled={isSubmitting}
             onChange={(event) => updateField("transactionTime", event.target.value)}
             required
             type="time"
             value={values.transactionTime}
           />
-          {errors.transactionTime ? <span className="field-error">{errors.transactionTime}</span> : null}
+          {errors.transactionTime ? <span className="field-error" id="tx-time-error">{errors.transactionTime}</span> : null}
         </label>
 
         <div className="form-field wide-panel">
@@ -231,6 +243,8 @@ export default function ExpenseForm({
         <label className="form-field">
           <span>Merchant/source</span>
           <Input
+            aria-describedby={errors.merchant ? "tx-merchant-error" : undefined}
+            aria-invalid={errors.merchant ? true : undefined}
             autoComplete="off"
             disabled={isSubmitting}
             maxLength={120}
@@ -239,13 +253,15 @@ export default function ExpenseForm({
             type="text"
             value={values.merchant}
           />
-          {errors.merchant ? <span className="field-error">{errors.merchant}</span> : null}
+          {errors.merchant ? <span className="field-error" id="tx-merchant-error">{errors.merchant}</span> : null}
         </label>
       </div>
 
       <label className="form-field">
         <span>Notes</span>
         <textarea
+          aria-describedby={errors.notes ? "tx-notes-error" : undefined}
+          aria-invalid={errors.notes ? true : undefined}
           disabled={isSubmitting}
           maxLength={1000}
           onChange={(event) => updateField("notes", event.target.value)}
@@ -254,7 +270,7 @@ export default function ExpenseForm({
           value={values.notes}
         />
         <span className="field-hint">{values.notes.length}/1000 characters</span>
-        {errors.notes ? <span className="field-error">{errors.notes}</span> : null}
+        {errors.notes ? <span className="field-error" id="tx-notes-error">{errors.notes}</span> : null}
       </label>
 
       <div className="form-actions">

@@ -1,5 +1,5 @@
 import { Edit3, PiggyBank, PlusCircle, Save, Target, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -75,6 +75,8 @@ function BudgetProgress({ budget }) {
 export default function Budgets() {
   const navigate = useNavigate();
   const { markUnauthenticated } = useAuth();
+  const formPanelRef = useRef(null);
+  const amountInputRef = useRef(null);
   const [state, setState] = useState({
     categories: [],
     data: null,
@@ -192,6 +194,10 @@ export default function Budgets() {
       status: "idle",
       values: budgetToFormValues(budget),
     });
+    window.requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      amountInputRef.current?.focus({ preventScroll: true });
+    });
   }
 
   async function handleSubmit(event) {
@@ -207,6 +213,9 @@ export default function Budgets() {
         errors: validation.errors,
         message: getFirstValidationError(validation.errors),
       }));
+      window.requestAnimationFrame(() => {
+        formPanelRef.current?.querySelector('[aria-invalid="true"]')?.focus();
+      });
       return;
     }
 
@@ -352,7 +361,7 @@ export default function Budgets() {
         </section>
       </div>
 
-      <section className="panel" aria-labelledby="budget-form-title">
+      <section className="panel" aria-labelledby="budget-form-title" ref={formPanelRef}>
         <div className="panel-header">
           <div>
             <h2 id="budget-form-title">
@@ -380,19 +389,22 @@ export default function Budgets() {
             <label className="form-field">
               <span>Monthly limit</span>
               <Input
+                aria-describedby={formState.errors.amount ? "budget-amount-error" : undefined}
+                aria-invalid={formState.errors.amount ? true : undefined}
                 autoComplete="off"
                 disabled={isSubmitting}
                 inputMode="decimal"
                 onChange={(event) => updateFormField("amount", event.target.value)}
                 placeholder="5000"
+                ref={amountInputRef}
                 required
                 type="text"
                 value={formState.values.amount}
               />
-              {formState.errors.amount ? <span className="field-error">{formState.errors.amount}</span> : null}
+              {formState.errors.amount ? <span className="field-error" id="budget-amount-error">{formState.errors.amount}</span> : null}
             </label>
 
-            <label className="form-field checkbox-field">
+            <div className="form-field checkbox-field">
               <span>Status</span>
               <label className="checkbox-inline">
                 <input
@@ -403,7 +415,7 @@ export default function Budgets() {
                 />
                 Active
               </label>
-            </label>
+            </div>
           </div>
 
           {formState.message ? <p className="form-error" role="alert">{formState.message}</p> : null}

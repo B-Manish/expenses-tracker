@@ -52,10 +52,11 @@ export default function TrendChart({
   }
 
   return (
+    <>
     <div
       className="chart-frame trend-chart-frame"
       role="img"
-      aria-label={`${mode === "monthly" ? "Monthly" : "Daily"} spending trend bar chart`}
+      aria-label={`${mode === "monthly" ? "Monthly" : "Daily"} spending trend bar chart. Expand "View chart data" below for exact values.`}
     >
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={chartData} margin={{ bottom: 0, left: 0, right: 6, top: 8 }}>
@@ -84,5 +85,26 @@ export default function TrendChart({
         </BarChart>
       </ResponsiveContainer>
     </div>
+
+    <details className="chart-data-details">
+      <summary>View chart data</summary>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">{mode === "monthly" ? "Month" : "Date"}</th>
+            <th scope="col">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {chartData.map((item) => (
+            <tr key={item.label}>
+              <td>{labelFormatter(item.label)}</td>
+              <td>{formatCurrencyFromPaise(item.amountPaise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+    </>
   );
 }

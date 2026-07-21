@@ -1,5 +1,5 @@
 import { CalendarClock, Edit3, PlusCircle, RotateCcw, Save, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -69,6 +69,8 @@ function dueText(day) {
 export default function RecurringExpenses() {
   const navigate = useNavigate();
   const { markUnauthenticated } = useAuth();
+  const formPanelRef = useRef(null);
+  const nameInputRef = useRef(null);
   const [state, setState] = useState({
     categories: [],
     data: null,
@@ -191,6 +193,10 @@ export default function RecurringExpenses() {
       status: "idle",
       values: recurringExpenseToFormValues(expense),
     });
+    window.requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameInputRef.current?.focus({ preventScroll: true });
+    });
   }
 
   async function handleSubmit(event) {
@@ -206,6 +212,9 @@ export default function RecurringExpenses() {
         errors: validation.errors,
         message: getFirstValidationError(validation.errors),
       }));
+      window.requestAnimationFrame(() => {
+        formPanelRef.current?.querySelector('[aria-invalid="true"]')?.focus();
+      });
       return;
     }
 
@@ -351,7 +360,7 @@ export default function RecurringExpenses() {
         </section>
       </div>
 
-      <section className="panel" aria-labelledby="recurring-form-title">
+      <section className="panel" aria-labelledby="recurring-form-title" ref={formPanelRef}>
         <div className="panel-header">
           <div>
             <h2 id="recurring-form-title">
@@ -366,21 +375,26 @@ export default function RecurringExpenses() {
             <label className="form-field">
               <span>Name</span>
               <Input
+                aria-describedby={formState.errors.title ? "recurring-title-error" : undefined}
+                aria-invalid={formState.errors.title ? true : undefined}
                 autoComplete="off"
                 disabled={isSubmitting}
                 maxLength={120}
                 onChange={(event) => updateFormField("title", event.target.value)}
                 placeholder="Wi-Fi"
+                ref={nameInputRef}
                 required
                 type="text"
                 value={formState.values.title}
               />
-              {formState.errors.title ? <span className="field-error">{formState.errors.title}</span> : null}
+              {formState.errors.title ? <span className="field-error" id="recurring-title-error">{formState.errors.title}</span> : null}
             </label>
 
             <label className="form-field">
               <span>Amount</span>
               <Input
+                aria-describedby={formState.errors.amount ? "recurring-amount-error" : undefined}
+                aria-invalid={formState.errors.amount ? true : undefined}
                 autoComplete="off"
                 disabled={isSubmitting}
                 inputMode="decimal"
@@ -390,7 +404,7 @@ export default function RecurringExpenses() {
                 type="text"
                 value={formState.values.amount}
               />
-              {formState.errors.amount ? <span className="field-error">{formState.errors.amount}</span> : null}
+              {formState.errors.amount ? <span className="field-error" id="recurring-amount-error">{formState.errors.amount}</span> : null}
             </label>
 
             <label className="form-field">
@@ -409,6 +423,8 @@ export default function RecurringExpenses() {
             <label className="form-field">
               <span>Billing day</span>
               <Input
+                aria-describedby={formState.errors.billingDay ? "recurring-billing-day-error" : undefined}
+                aria-invalid={formState.errors.billingDay ? true : undefined}
                 disabled={isSubmitting}
                 max="31"
                 min="1"
@@ -417,7 +433,7 @@ export default function RecurringExpenses() {
                 type="number"
                 value={formState.values.billingDay}
               />
-              {formState.errors.billingDay ? <span className="field-error">{formState.errors.billingDay}</span> : null}
+              {formState.errors.billingDay ? <span className="field-error" id="recurring-billing-day-error">{formState.errors.billingDay}</span> : null}
             </label>
 
             <label className="form-field">
@@ -431,7 +447,7 @@ export default function RecurringExpenses() {
               {formState.errors.frequency ? <span className="field-error">{formState.errors.frequency}</span> : null}
             </label>
 
-            <label className="form-field checkbox-field">
+            <div className="form-field checkbox-field">
               <span>Status</span>
               <label className="checkbox-inline">
                 <input
@@ -442,12 +458,14 @@ export default function RecurringExpenses() {
                 />
                 Active
               </label>
-            </label>
+            </div>
           </div>
 
           <label className="form-field">
             <span>Notes</span>
             <textarea
+              aria-describedby={formState.errors.notes ? "recurring-notes-error" : undefined}
+              aria-invalid={formState.errors.notes ? true : undefined}
               disabled={isSubmitting}
               maxLength={1000}
               onChange={(event) => updateFormField("notes", event.target.value)}
@@ -456,7 +474,7 @@ export default function RecurringExpenses() {
               value={formState.values.notes}
             />
             <span className="field-hint">{formState.values.notes.length}/1000 characters</span>
-            {formState.errors.notes ? <span className="field-error">{formState.errors.notes}</span> : null}
+            {formState.errors.notes ? <span className="field-error" id="recurring-notes-error">{formState.errors.notes}</span> : null}
           </label>
 
           {formState.message ? <p className="form-error" role="alert">{formState.message}</p> : null}

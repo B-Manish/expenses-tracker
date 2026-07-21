@@ -311,7 +311,7 @@ export default function Settings() {
                 options={themeOptions}
                 value={formValues.theme}
               />
-              <span className="field-hint">Stored as a preference; full theme styling can come later.</span>
+              <span className="field-hint">Applies immediately on this device.</span>
             </label>
 
             <label className="form-field">

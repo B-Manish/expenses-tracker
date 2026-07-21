@@ -1,5 +1,5 @@
 import { CreditCard, Edit3, PlusCircle, Save, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -29,6 +29,8 @@ function buildPaymentMethodPayload(values) {
 export default function PaymentMethods() {
   const navigate = useNavigate();
   const { markUnauthenticated } = useAuth();
+  const formPanelRef = useRef(null);
+  const nameInputRef = useRef(null);
   const [state, setState] = useState({
     data: null,
     error: "",
@@ -133,6 +135,10 @@ export default function PaymentMethods() {
         name: method.name || "",
       },
     });
+    window.requestAnimationFrame(() => {
+      formPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameInputRef.current?.focus({ preventScroll: true });
+    });
   }
 
   async function handleSubmit(event) {
@@ -146,6 +152,9 @@ export default function PaymentMethods() {
         errors: validation.errors,
         message: getFirstValidationError(validation.errors),
       }));
+      window.requestAnimationFrame(() => {
+        formPanelRef.current?.querySelector('[aria-invalid="true"]')?.focus();
+      });
       return;
     }
 
@@ -254,7 +263,7 @@ export default function PaymentMethods() {
         </p>
       ) : null}
 
-      <section className="panel" aria-labelledby="payment-method-form-title">
+      <section className="panel" aria-labelledby="payment-method-form-title" ref={formPanelRef}>
         <div className="panel-header">
           <div>
             <h2 id="payment-method-form-title">
@@ -268,16 +277,19 @@ export default function PaymentMethods() {
           <label className="form-field">
             <span>Name</span>
             <Input
+              aria-describedby={formState.errors.name ? "payment-name-error" : undefined}
+              aria-invalid={formState.errors.name ? true : undefined}
               autoComplete="off"
               disabled={isSubmitting}
               maxLength={80}
               onChange={(event) => updateName(event.target.value)}
               placeholder="PhonePe"
+              ref={nameInputRef}
               required
               type="text"
               value={formState.values.name}
             />
-            {formState.errors.name ? <span className="field-error">{formState.errors.name}</span> : null}
+            {formState.errors.name ? <span className="field-error" id="payment-name-error">{formState.errors.name}</span> : null}
           </label>
 
           {formState.message ? <p className="form-error" role="alert">{formState.message}</p> : null}

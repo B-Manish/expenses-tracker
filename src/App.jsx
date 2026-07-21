@@ -1,20 +1,24 @@
+import { Suspense, lazy } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import EmptyState from "./components/EmptyState.jsx";
 import ErrorState from "./components/ErrorState.jsx";
 import Layout from "./components/Layout.jsx";
 import LoadingState from "./components/LoadingState.jsx";
-import AddExpense from "./pages/AddExpense.jsx";
-import Budgets from "./pages/Budgets.jsx";
-import Categories from "./pages/Categories.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import EditExpense from "./pages/EditExpense.jsx";
-import Expenses from "./pages/Expenses.jsx";
-import Login from "./pages/Login.jsx";
-import PaymentMethods from "./pages/PaymentMethods.jsx";
-import RecurringExpenses from "./pages/RecurringExpenses.jsx";
-import Settings from "./pages/Settings.jsx";
-import SmsImports from "./pages/SmsImports.jsx";
 import { AuthProvider, useAuth } from "./services/auth.js";
+
+// Route-level code splitting: the login screen no longer downloads the whole
+// app (charts included); each page loads on first visit.
+const AddExpense = lazy(() => import("./pages/AddExpense.jsx"));
+const Budgets = lazy(() => import("./pages/Budgets.jsx"));
+const Categories = lazy(() => import("./pages/Categories.jsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
+const EditExpense = lazy(() => import("./pages/EditExpense.jsx"));
+const Expenses = lazy(() => import("./pages/Expenses.jsx"));
+const Login = lazy(() => import("./pages/Login.jsx"));
+const PaymentMethods = lazy(() => import("./pages/PaymentMethods.jsx"));
+const RecurringExpenses = lazy(() => import("./pages/RecurringExpenses.jsx"));
+const Settings = lazy(() => import("./pages/Settings.jsx"));
+const SmsImports = lazy(() => import("./pages/SmsImports.jsx"));
 
 function ProtectedRoute() {
   const location = useLocation();
@@ -103,7 +107,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppRoutes />
+      <Suspense fallback={<LoadingState title="Loading page" />}>
+        <AppRoutes />
+      </Suspense>
     </AuthProvider>
   );
 }

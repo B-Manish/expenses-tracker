@@ -23,8 +23,9 @@ const SORT_CLAUSES = Object.freeze({
   transaction_date_asc: "t.transaction_date ASC, t.transaction_time ASC, t.created_at ASC, t.id ASC",
   created_at_desc: "t.created_at DESC, t.id DESC",
   created_at_asc: "t.created_at ASC, t.id ASC",
-  amount_desc: "t.amount_paise DESC, t.id DESC",
-  amount_asc: "t.amount_paise ASC, t.id ASC",
+  // NULL amounts (unparsed SMS imports) sort after real amounts either way.
+  amount_desc: "t.amount_paise IS NULL ASC, t.amount_paise DESC, t.id DESC",
+  amount_asc: "t.amount_paise IS NULL ASC, t.amount_paise ASC, t.id ASC",
 });
 export const TRANSACTION_SORTS = Object.freeze(Object.keys(SORT_CLAUSES));
 

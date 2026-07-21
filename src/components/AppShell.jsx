@@ -12,7 +12,7 @@ import {
   Target,
   WalletCards,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { Separator } from "./ui/separator.jsx";
@@ -44,6 +44,22 @@ const bottomNavItems = [
   { to: "/expenses", label: "Entries", icon: ReceiptText, end: true },
   { to: "/budgets", label: "Budgets", icon: Target },
 ];
+
+// Routes reachable only through the mobile "More" sheet; the More trigger
+// shows the active state when one of them is open.
+const moreRoutes = ["/recurring-expenses", "/sms-imports", "/categories", "/payment-methods", "/settings"];
+
+function routeTitle(pathname) {
+  if (pathname === "/expenses/new") {
+    return "Add transaction";
+  }
+
+  if (/^\/expenses\/[^/]+\/edit$/.test(pathname)) {
+    return "Edit transaction";
+  }
+
+  return menuItems.find((item) => item.to === pathname)?.label || "";
+}
 
 function bottomNavClassName({ isActive }) {
   return isActive ? "bottom-nav-item active" : "bottom-nav-item";
@@ -91,6 +107,8 @@ function LogoutButton({ isLoggingOut, onLogout }) {
 
 function MoreMenu({ isLoggingOut, onLogout }) {
   const [open, setOpen] = useState(false);
+  const { pathname } = useLocation();
+  const isActive = moreRoutes.some((route) => pathname.startsWith(route));
 
   function close() {
     setOpen(false);
@@ -99,7 +117,12 @@ function MoreMenu({ isLoggingOut, onLogout }) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="bottom-nav-item" type="button" aria-label="More navigation">
+        <button
+          aria-current={isActive ? "page" : undefined}
+          className={isActive ? "bottom-nav-item active" : "bottom-nav-item"}
+          type="button"
+          aria-label="More navigation"
+        >
           <LayoutGrid size={22} aria-hidden="true" />
           <span>More</span>
         </button>
@@ -133,10 +156,33 @@ function MoreMenu({ isLoggingOut, onLogout }) {
 
 export default function AppShell({ children, isLoggingOut = false, onLogout }) {
   const { pathname } = useLocation();
+  const mainRef = useRef(null);
   const isAddActive = pathname === "/expenses/new";
+
+  // On route change: reset the scroll container (persistent .app-main is the
+  // mobile scroller), update the tab title, and move focus to the new page
+  // heading so keyboard and screen-reader users hear the navigation.
+  useEffect(() => {
+    mainRef.current?.scrollTo?.(0, 0);
+    window.scrollTo(0, 0);
+
+    const title = routeTitle(pathname);
+
+    document.title = title ? `${title} — Cashly` : "Cashly";
+
+    const heading = mainRef.current?.querySelector("h1");
+
+    if (heading) {
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+    }
+  }, [pathname]);
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <aside className="app-sidebar" id="app-sidebar">
         <div className="sidebar-inner">
           <BrandLockup />
@@ -149,7 +195,7 @@ export default function AppShell({ children, isLoggingOut = false, onLogout }) {
         </div>
       </aside>
 
-      <main className="app-main">{children}</main>
+      <main className="app-main" id="main-content" ref={mainRef}>{children}</main>
 
       <nav className="bottom-nav" aria-label="Primary navigation">
         <NavLink className={bottomNavClassName} end={bottomNavItems[0].end} to={bottomNavItems[0].to}>

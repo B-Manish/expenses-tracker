@@ -1,5 +1,5 @@
 import { CheckCircle2, ChevronLeft, ChevronRight, Edit3, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AmountText from "../components/AmountText.jsx";
 import CategoryBadge from "../components/CategoryBadge.jsx";
@@ -150,7 +150,13 @@ export default function SmsImports() {
     [markUnauthenticated, navigate],
   );
 
+  // Monotonic request id: a slow response for a tab/page the user has already
+  // left must never overwrite the newer list.
+  const requestIdRef = useRef(0);
+
   const loadImports = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
     setListState((current) => ({ ...current, error: "", status: "loading" }));
 
     try {
@@ -160,8 +166,16 @@ export default function SmsImports() {
         offset: String(offset),
       });
 
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setListState({ data, error: "", status: "ready" });
     } catch (error) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       if (handleAuthError(error, "Please log in again to review SMS imports.")) {
         return;
       }
@@ -173,6 +187,17 @@ export default function SmsImports() {
   useEffect(() => {
     loadImports();
   }, [loadImports]);
+
+  // A stale offset (bookmark, back button) past the filtered total renders an
+  // empty page with live records; clamp back to the last real page.
+  useEffect(() => {
+    const total = listState.data?.total ?? 0;
+
+    if (listState.status === "ready" && total > 0 && offset >= total) {
+      changePage(Math.floor((total - 1) / PAGE_SIZE) * PAGE_SIZE);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- changePage is stable in behavior
+  }, [listState, offset]);
 
   function updateParams(next) {
     const params = new URLSearchParams(queryKey);

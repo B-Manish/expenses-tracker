@@ -28,7 +28,7 @@ export default function CategoryChips({
           <button
             aria-pressed={isActive}
             className={cn(
-              "inline-flex min-h-12 items-center rounded-2xl px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex min-h-12 max-w-full items-center rounded-2xl px-5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               isActive
                 ? "rounded-[1.4rem] bg-primary text-primary-foreground shadow-md shadow-primary/25"
                 : "border border-border/60 bg-card text-foreground shadow-sm hover:bg-muted",
@@ -36,9 +36,10 @@ export default function CategoryChips({
             disabled={disabled}
             key={id}
             onClick={() => onChange(isActive ? "" : id)}
+            title={category.name}
             type="button"
           >
-            {category.name}
+            <span className="truncate">{category.name}</span>
           </button>
         );
       })}
