@@ -7,10 +7,12 @@ import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { getErrorMessage } from "../utils/validation.js";
 
 export default function AddExpense() {
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [referenceState, setReferenceState] = useState({
     categories: [],
     error: "",
@@ -43,6 +45,7 @@ export default function AddExpense() {
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
+        markUnauthenticated();
         navigate("/login", {
           replace: true,
           state: { notice: "Please log in again to add a transaction." },
@@ -57,50 +60,15 @@ export default function AddExpense() {
         status: "error",
       });
     }
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
+  // Deferred so the loading setState inside loadReferences is not synchronous
+  // in the effect body; the cleanup also dedupes StrictMode's double mount.
   useEffect(() => {
-    let isCurrent = true;
+    const timer = setTimeout(loadReferences, 0);
 
-    Promise.all([
-      api.getCategories(),
-      api.getPaymentMethods(),
-    ])
-      .then(([categories, paymentMethods]) => {
-        if (isCurrent) {
-          setReferenceState({
-            categories: categories?.items || [],
-            error: "",
-            paymentMethods: paymentMethods?.items || [],
-            status: "ready",
-          });
-        }
-      })
-      .catch((error) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (error instanceof ApiError && error.status === 401) {
-          navigate("/login", {
-            replace: true,
-            state: { notice: "Please log in again to add a transaction." },
-          });
-          return;
-        }
-
-        setReferenceState({
-          categories: [],
-          error: getErrorMessage(error),
-          paymentMethods: [],
-          status: "error",
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [navigate]);
+    return () => clearTimeout(timer);
+  }, [loadReferences]);
 
   async function handleSubmit(payload) {
     setSubmitState({
@@ -116,6 +84,7 @@ export default function AddExpense() {
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
+        markUnauthenticated();
         navigate("/login", {
           replace: true,
           state: { notice: "Please log in again to add a transaction." },
@@ -131,7 +100,7 @@ export default function AddExpense() {
   }
 
   if (referenceState.status === "loading") {
-    return <LoadingState title="Loading form" message="Fetching categories and payment methods." />;
+    return <LoadingState title="Loading form" />;
   }
 
   if (referenceState.status === "error") {

@@ -102,6 +102,12 @@ export function AuthProvider({ children }) {
     api.completePasswordReset(token, password)
   ), []);
 
+  // Called by pages when an API request returns 401 so route guards see the
+  // expired session instead of bouncing /login back to a protected route.
+  const markUnauthenticated = useCallback(() => {
+    setState(unauthenticatedState());
+  }, []);
+
   const logout = useCallback(async () => {
     let logoutError = null;
 
@@ -124,6 +130,7 @@ export function AuthProvider({ children }) {
     isChecking: state.status === "checking",
     login,
     logout,
+    markUnauthenticated,
     completePasswordReset,
     requestPasswordReset,
     requestSignupCode,
@@ -135,6 +142,7 @@ export function AuthProvider({ children }) {
     completePasswordReset,
     login,
     logout,
+    markUnauthenticated,
     requestPasswordReset,
     requestSignupCode,
     refreshAuth,

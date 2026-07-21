@@ -11,6 +11,7 @@ import { Badge } from "../components/ui/badge.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { formatCategoryLabel } from "../utils/categories.js";
 import { formatCurrencyFromPaise, paiseToRupeesInputValue } from "../utils/currency.js";
 import {
@@ -73,6 +74,7 @@ function BudgetProgress({ budget }) {
 
 export default function Budgets() {
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [state, setState] = useState({
     categories: [],
     data: null,
@@ -95,6 +97,7 @@ export default function Budgets() {
 
   const handleAuthError = useCallback((error) => {
     if (error instanceof ApiError && error.status === 401) {
+      markUnauthenticated();
       navigate("/login", {
         replace: true,
         state: { notice: "Please log in again to manage budgets." },
@@ -103,7 +106,7 @@ export default function Budgets() {
     }
 
     return false;
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
   const loadPageData = useCallback(async (options = {}) => {
     if (!options.silent) {
@@ -280,7 +283,7 @@ export default function Budgets() {
   }
 
   if (state.status === "loading") {
-    return <LoadingState title="Loading budgets" message="Fetching your monthly category budgets." />;
+    return <LoadingState title="Loading budgets" />;
   }
 
   if (state.status === "error") {
@@ -493,6 +496,7 @@ export default function Budgets() {
       </section>
 
       <ConfirmDialog
+        busyLabel={deleteState.budget?.isActive ? "Deactivating" : "Deleting"}
         confirmLabel={deleteState.budget?.isActive ? "Deactivate" : "Delete"}
         error={deleteState.error}
         isBusy={deleteState.status === "submitting"}

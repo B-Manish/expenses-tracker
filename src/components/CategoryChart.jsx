@@ -1,6 +1,5 @@
 import {
   Cell,
-  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -77,10 +76,6 @@ export default function CategoryChart({ items = [] }) {
               ))}
             </Pie>
             <Tooltip content={<ChartTooltip />} />
-            <Legend
-              formatter={(value) => <span className="chart-legend-label">{value}</span>}
-              iconType="circle"
-            />
           </PieChart>
         </ResponsiveContainer>
         <div className="chart-center-label" aria-hidden="true">
@@ -89,6 +84,8 @@ export default function CategoryChart({ items = [] }) {
         </div>
       </div>
 
+      {/* The list below is the legend; the in-chart Legend was removed so a
+          long category tail cannot squash the pie inside its fixed frame. */}
       <ul className="category-list chart-detail-list">
         {data.slice(0, 6).map((item) => (
           <li className="category-row" key={item.category}>
@@ -97,6 +94,15 @@ export default function CategoryChart({ items = [] }) {
             <strong>{formatCurrencyFromPaise(item.amountPaise)}</strong>
           </li>
         ))}
+        {data.length > 6 ? (
+          <li className="category-row" key="__more">
+            <span className="category-color bg-muted" aria-hidden="true" />
+            <span>{data.length - 6} more {data.length - 6 === 1 ? "category" : "categories"}</span>
+            <strong>
+              {formatCurrencyFromPaise(data.slice(6).reduce((sum, item) => sum + item.amountPaise, 0))}
+            </strong>
+          </li>
+        ) : null}
       </ul>
     </div>
   );

@@ -152,6 +152,37 @@ export function getMonthRangeInKolkata(monthOffset = 0) {
   };
 }
 
+// Week-start preference, mirrored into localStorage by the Settings page so
+// calendar widgets can read it without an API round trip. date-fns numbering:
+// 0 = Sunday … 6 = Saturday.
+const WEEK_START_DAYS = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+};
+
+export function getStoredWeekStartsOn() {
+  try {
+    return WEEK_START_DAYS[localStorage.getItem("weekStartDay")] ?? 1;
+  } catch {
+    return 1;
+  }
+}
+
+export function setStoredWeekStartDay(day) {
+  try {
+    if (day in WEEK_START_DAYS) {
+      localStorage.setItem("weekStartDay", day);
+    }
+  } catch {
+    // Persistence is best-effort; calendars fall back to Monday.
+  }
+}
+
 export function formatDateRange(from, to) {
   if (!from && !to) {
     return "Current month";

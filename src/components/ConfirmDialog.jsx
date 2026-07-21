@@ -10,6 +10,7 @@ import {
 } from "./ui/dialog.jsx";
 
 export default function ConfirmDialog({
+  busyLabel = "",
   cancelLabel = "Cancel",
   confirmLabel = "Confirm",
   error = "",
@@ -50,7 +51,7 @@ export default function ConfirmDialog({
             {cancelLabel}
           </Button>
           <Button disabled={isBusy} onClick={onConfirm} type="button" variant="destructive">
-            {isBusy ? "Deleting" : confirmLabel}
+            {isBusy ? busyLabel || confirmLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

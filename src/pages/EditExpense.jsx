@@ -8,11 +8,13 @@ import LoadingState from "../components/LoadingState.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { getErrorMessage } from "../utils/validation.js";
 
 export default function EditExpense() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [state, setState] = useState({
     categories: [],
     error: "",
@@ -50,6 +52,7 @@ export default function EditExpense() {
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
+        markUnauthenticated();
         navigate("/login", {
           replace: true,
           state: { notice: "Please log in again to edit this transaction." },
@@ -65,7 +68,7 @@ export default function EditExpense() {
         transaction: null,
       });
     }
-  }, [fetchPageData, navigate]);
+  }, [fetchPageData, markUnauthenticated, navigate]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -88,6 +91,7 @@ export default function EditExpense() {
         }
 
         if (error instanceof ApiError && error.status === 401) {
+          markUnauthenticated();
           navigate("/login", {
             replace: true,
             state: { notice: "Please log in again to edit this transaction." },
@@ -107,7 +111,7 @@ export default function EditExpense() {
     return () => {
       isCurrent = false;
     };
-  }, [fetchPageData, navigate]);
+  }, [fetchPageData, markUnauthenticated, navigate]);
 
   async function handleSubmit(payload) {
     setSubmitState({
@@ -123,6 +127,7 @@ export default function EditExpense() {
       });
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
+        markUnauthenticated();
         navigate("/login", {
           replace: true,
           state: { notice: "Please log in again to edit this transaction." },
@@ -138,7 +143,7 @@ export default function EditExpense() {
   }
 
   if (state.status === "loading") {
-    return <LoadingState title="Loading transaction" message="Fetching the selected record." />;
+    return <LoadingState title="Loading transaction" />;
   }
 
   if (state.status === "error") {

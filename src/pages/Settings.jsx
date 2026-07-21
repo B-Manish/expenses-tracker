@@ -15,7 +15,8 @@ import SelectControl from "../components/SelectControl.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
 import { useAuth } from "../services/auth.js";
-import { setStoredTheme } from "../utils/theme.js";
+import { setStoredWeekStartDay } from "../utils/dateUtils.js";
+import { setStoredTheme, subscribeTheme } from "../utils/theme.js";
 import {
   getErrorMessage,
   getFirstValidationError,
@@ -69,7 +70,7 @@ function getWeekStartLabel(value) {
 }
 
 export default function Settings() {
-  const { logout } = useAuth();
+  const { logout, markUnauthenticated } = useAuth();
   const navigate = useNavigate();
   const [loadState, setLoadState] = useState({
     error: "",
@@ -105,8 +106,10 @@ export default function Settings() {
         status: "ready",
       });
       setFormValues(settings);
+      setStoredWeekStartDay(settings.weekStartDay);
     } catch (settingsError) {
       if (settingsError instanceof ApiError && settingsError.status === 401) {
+        markUnauthenticated();
         navigate("/login", {
           replace: true,
           state: { notice: "Please log in again to manage settings." },
@@ -123,49 +126,21 @@ export default function Settings() {
       });
       setFormValues(settings);
     }
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
+  // Deferred so the loading setState inside loadSettings is not synchronous
+  // in the effect body; the cleanup also dedupes StrictMode's double mount.
   useEffect(() => {
-    let isCurrent = true;
+    const timer = setTimeout(loadSettings, 0);
 
-    api.getSettings()
-      .then((settings) => {
-        if (isCurrent) {
-          const normalized = normalizeSettings(settings);
+    return () => clearTimeout(timer);
+  }, [loadSettings]);
 
-          setLoadState({
-            error: "",
-            settings: normalized,
-            status: "ready",
-          });
-          setFormValues(normalized);
-        }
-      })
-      .catch((settingsError) => {
-        if (isCurrent) {
-          if (settingsError instanceof ApiError && settingsError.status === 401) {
-            navigate("/login", {
-              replace: true,
-              state: { notice: "Please log in again to manage settings." },
-            });
-            return;
-          }
-
-          const settings = DEFAULT_SETTINGS;
-
-          setLoadState({
-            error: getErrorMessage(settingsError, "Settings could not be loaded."),
-            settings,
-            status: "fallback",
-          });
-          setFormValues(settings);
-        }
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [navigate]);
+  // Keep the theme select current when the sidebar toggle changes the theme
+  // while this page is open.
+  useEffect(() => subscribeTheme((mode) => {
+    setFormValues((current) => (current.theme === mode ? current : { ...current, theme: mode }));
+  }), []);
 
   const hasChanges = useMemo(
     () => Object.keys(DEFAULT_SETTINGS).some((key) => formValues[key] !== loadState.settings[key]),
@@ -193,6 +168,8 @@ export default function Settings() {
 
   function resetChanges() {
     setFormValues(loadState.settings);
+    // Theme is applied live while editing; undo that side effect too.
+    setStoredTheme(loadState.settings.theme);
     setSaveState({
       error: "",
       message: "",
@@ -229,6 +206,8 @@ export default function Settings() {
         status: "ready",
       });
       setFormValues(settings);
+      setStoredTheme(settings.theme);
+      setStoredWeekStartDay(settings.weekStartDay);
       setSaveState({
         error: "",
         message: "Settings saved.",
@@ -236,6 +215,7 @@ export default function Settings() {
       });
     } catch (settingsError) {
       if (settingsError instanceof ApiError && settingsError.status === 401) {
+        markUnauthenticated();
         navigate("/login", {
           replace: true,
           state: { notice: "Please log in again to manage settings." },
@@ -270,7 +250,7 @@ export default function Settings() {
   }
 
   if (loadState.status === "loading") {
-    return <LoadingState title="Loading settings" message="Fetching your app preferences." />;
+    return <LoadingState title="Loading settings" />;
   }
 
   return (

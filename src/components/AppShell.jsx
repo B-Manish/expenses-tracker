@@ -27,7 +27,7 @@ import {
 
 const menuItems = [
   { to: "/", label: "Dashboard", icon: Home, end: true },
-  { to: "/expenses", label: "Transactions", icon: ReceiptText },
+  { to: "/expenses", label: "Transactions", icon: ReceiptText, end: true },
   { to: "/expenses/new", label: "Add transaction", icon: Plus },
   { to: "/recurring-expenses", label: "Recurring", icon: CalendarClock },
   { to: "/budgets", label: "Budgets", icon: Target },
@@ -41,7 +41,7 @@ const menuItems = [
 // (Settings, Recurring, Categories, Payments, SMS) live in the More sheet.
 const bottomNavItems = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/expenses", label: "Entries", icon: ReceiptText },
+  { to: "/expenses", label: "Entries", icon: ReceiptText, end: true },
   { to: "/budgets", label: "Budgets", icon: Target },
 ];
 
@@ -156,7 +156,7 @@ export default function AppShell({ children, isLoggingOut = false, onLogout }) {
           <Home size={22} aria-hidden="true" />
           <span>{bottomNavItems[0].label}</span>
         </NavLink>
-        <NavLink className={bottomNavClassName} to={bottomNavItems[1].to}>
+        <NavLink className={bottomNavClassName} end={bottomNavItems[1].end} to={bottomNavItems[1].to}>
           <ReceiptText size={22} aria-hidden="true" />
           <span>{bottomNavItems[1].label}</span>
         </NavLink>

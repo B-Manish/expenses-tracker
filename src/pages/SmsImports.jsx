@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "../components/ui/table.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { formatDisplayDateTime } from "../utils/dateUtils.js";
 import { getErrorMessage } from "../utils/validation.js";
 
@@ -61,8 +62,55 @@ function StatusBadge({ status }) {
   return <Badge variant="secondary">{status}</Badge>;
 }
 
+function ImportActions({ confirmingId, item, onConfirm, onDeleteRequest }) {
+  return (
+    <div className="row-actions">
+      {item.status !== "CONFIRMED" ? (
+        <Button
+          aria-label={`Confirm ${item.title}`}
+          disabled={confirmingId === item.id}
+          onClick={() => onConfirm(item)}
+          size="icon"
+          title="Confirm"
+          type="button"
+          variant="outline"
+        >
+          <CheckCircle2 size={16} aria-hidden="true" />
+        </Button>
+      ) : null}
+      {item.transactionId ? (
+        <Button
+          asChild
+          aria-label={`Edit ${item.title}`}
+          size="icon"
+          title="Edit"
+          variant="outline"
+        >
+          <Link to={`/expenses/${item.transactionId}/edit`}>
+            <Edit3 size={16} aria-hidden="true" />
+          </Link>
+        </Button>
+      ) : null}
+      {item.transactionId ? (
+        <Button
+          aria-label={`Delete ${item.title}`}
+          className="danger-icon-button"
+          onClick={() => onDeleteRequest(item)}
+          size="icon"
+          title="Delete"
+          type="button"
+          variant="outline"
+        >
+          <Trash2 size={16} aria-hidden="true" />
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function SmsImports() {
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryKey = searchParams.toString();
   const status = VALID_STATUSES.has(searchParams.get("status"))
@@ -79,6 +127,9 @@ export default function SmsImports() {
     status: "loading",
   });
   const [confirmingId, setConfirmingId] = useState(null);
+  // Row-action failures (confirm) surface here; listState.error only covers
+  // list loading, and its ErrorState replaces the whole table.
+  const [actionError, setActionError] = useState("");
   const [deleteState, setDeleteState] = useState({
     error: "",
     status: "idle",
@@ -89,13 +140,14 @@ export default function SmsImports() {
   const handleAuthError = useCallback(
     (error, noticeMessage) => {
       if (error instanceof ApiError && error.status === 401) {
+        markUnauthenticated();
         navigate("/login", { replace: true, state: { notice: noticeMessage } });
         return true;
       }
 
       return false;
     },
-    [navigate],
+    [markUnauthenticated, navigate],
   );
 
   const loadImports = useCallback(async () => {
@@ -146,17 +198,28 @@ export default function SmsImports() {
 
   async function confirmImport(item) {
     setConfirmingId(item.id);
+    setActionError("");
 
     try {
       await api.confirmSmsImport(item.id);
       setNotice("Marked as reviewed.");
-      await loadImports();
+
+      // Confirming the only row of a later page removes it from the
+      // "needs review" filter; step back so the user is not stranded on an
+      // empty page with no pagination controls.
+      const items = listState.data?.items || [];
+
+      if (status === "needs_review" && items.length === 1 && offset > 0) {
+        changePage(offset - PAGE_SIZE);
+      } else {
+        await loadImports();
+      }
     } catch (error) {
       if (handleAuthError(error, "Please log in again to confirm SMS imports.")) {
         return;
       }
 
-      setListState((current) => ({ ...current, error: getErrorMessage(error) }));
+      setActionError(getErrorMessage(error));
     } finally {
       setConfirmingId(null);
     }
@@ -218,6 +281,10 @@ export default function SmsImports() {
         </p>
       ) : null}
 
+      {actionError ? (
+        <p className="form-error" role="alert">{actionError}</p>
+      ) : null}
+
       <div className="filter-tabs" role="group" aria-label="Filter by review status">
         {STATUS_TABS.map((tab) => (
           <Button
@@ -240,7 +307,7 @@ export default function SmsImports() {
         </div>
 
         {listState.status === "loading" ? (
-          <LoadingState centered={false} title="Loading SMS imports" message="Fetching captured messages." />
+          <LoadingState centered={false} title="Loading SMS imports" />
         ) : null}
 
         {listState.status === "error" ? (
@@ -254,7 +321,7 @@ export default function SmsImports() {
 
         {listState.status === "ready" && items.length ? (
           <>
-            <div className="table-scroll" role="region" aria-label="SMS imports table">
+            <div className="table-scroll desktop-transactions" role="region" aria-label="SMS imports table">
               <Table className="transactions-table">
                 <TableHeader>
                   <TableRow>
@@ -309,53 +376,73 @@ export default function SmsImports() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="row-actions">
-                          {item.status !== "CONFIRMED" ? (
-                            <Button
-                              aria-label={`Confirm ${item.title}`}
-                              disabled={confirmingId === item.id}
-                              onClick={() => confirmImport(item)}
-                              size="icon"
-                              title="Confirm"
-                              type="button"
-                              variant="outline"
-                            >
-                              <CheckCircle2 size={16} aria-hidden="true" />
-                            </Button>
-                          ) : null}
-                          {item.transactionId ? (
-                            <Button
-                              asChild
-                              aria-label={`Edit ${item.title}`}
-                              size="icon"
-                              title="Edit"
-                              variant="outline"
-                            >
-                              <Link to={`/expenses/${item.transactionId}/edit`}>
-                                <Edit3 size={16} aria-hidden="true" />
-                              </Link>
-                            </Button>
-                          ) : null}
-                          {item.transactionId ? (
-                            <Button
-                              aria-label={`Delete ${item.title}`}
-                              className="danger-icon-button"
-                              onClick={() => setDeleteState({ error: "", status: "idle", item })}
-                              size="icon"
-                              title="Delete"
-                              type="button"
-                              variant="outline"
-                            >
-                              <Trash2 size={16} aria-hidden="true" />
-                            </Button>
-                          ) : null}
-                        </div>
+                        <ImportActions
+                          confirmingId={confirmingId}
+                          item={item}
+                          onConfirm={confirmImport}
+                          onDeleteRequest={(target) => setDeleteState({ error: "", status: "idle", item: target })}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+
+            <ul className="mobile-transaction-list">
+              {items.map((item) => (
+                <li className="transaction-card" key={item.id}>
+                  <div className="transaction-card-main">
+                    <div>
+                      <div className="transaction-card-title">
+                        <strong>{item.title}</strong>
+                        <StatusBadge status={item.status} />
+                      </div>
+                      <span>
+                        {formatDisplayDateTime(item.transactionDate, item.transactionTime)}
+                        {item.merchant ? ` - ${item.merchant}` : ""}
+                      </span>
+                    </div>
+                  </div>
+
+                  <dl className="transaction-meta">
+                    <div>
+                      <dt>Category</dt>
+                      <dd><CategoryBadge label={item.categoryName || "Uncategorized"} /></dd>
+                    </div>
+                    <div>
+                      <dt>Payment</dt>
+                      <dd>{item.paymentMethodName || "Not set"}</dd>
+                    </div>
+                    <div>
+                      <dt>Confidence</dt>
+                      <dd><ConfidenceBadge confidence={item.confidence} /></dd>
+                    </div>
+                  </dl>
+
+                  {item.rawMessage ? (
+                    <details className="sms-raw-message">
+                      <summary>View original message from {item.sender}</summary>
+                      <p>{item.rawMessage}</p>
+                    </details>
+                  ) : null}
+
+                  <div className="transaction-card-footer">
+                    {item.amountPaise === null ? (
+                      <span className="text-muted-foreground">Amount needs review</span>
+                    ) : (
+                      <AmountText amountPaise={item.amountPaise} type={item.suggestedType} />
+                    )}
+                    <ImportActions
+                      confirmingId={confirmingId}
+                      item={item}
+                      onConfirm={confirmImport}
+                      onDeleteRequest={(target) => setDeleteState({ error: "", status: "idle", item: target })}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
 
             <div className="pagination-bar" aria-label="Pagination">
               <Button

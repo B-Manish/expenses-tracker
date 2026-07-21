@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, PlusCircle } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import CategoryChart from "../components/CategoryChart.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -14,8 +14,9 @@ import SavedViews from "../components/SavedViews.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { formatCurrencyFromPaise, isAmountInput } from "../utils/currency.js";
-import { getTodayInKolkata, isValidDateInput } from "../utils/dateUtils.js";
+import { formatDateRange, isValidDateInput } from "../utils/dateUtils.js";
 import { LIMIT_OPTIONS, SORT_OPTIONS } from "../utils/transactionOptions.js";
 import { getErrorMessage } from "../utils/validation.js";
 
@@ -151,6 +152,7 @@ function getRangeText(total, offset, limit, itemCount) {
 export default function Expenses() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryKey = searchParams.toString();
   const filters = useMemo(() => readFilters(new URLSearchParams(queryKey)), [queryKey]);
@@ -172,6 +174,19 @@ export default function Expenses() {
   });
   const [notice, setNotice] = useState(location.state?.notice || "");
   const [stats, setStats] = useState(null);
+  // Bumped after mutations so the stats circle and category chart refetch.
+  const [statsVersion, setStatsVersion] = useState(0);
+  // Survives tab switches (which unmount SavedViews) so the default saved
+  // view is auto-applied at most once per page visit.
+  const savedViewAutoApplyRef = useRef(false);
+
+  // Consume the one-shot success notice so refresh/back does not resurrect it.
+  useEffect(() => {
+    if (location.state?.notice) {
+      navigate(location.pathname + location.search, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
 
   const activeFilterCount = useMemo(
     () => FILTER_COUNT_KEYS.filter((key) => filters[key] !== DEFAULT_FILTERS[key]).length,
@@ -180,6 +195,7 @@ export default function Expenses() {
 
   const handleAuthError = useCallback((error, noticeMessage) => {
     if (error instanceof ApiError && error.status === 401) {
+      markUnauthenticated();
       navigate("/login", {
         replace: true,
         state: { notice: noticeMessage },
@@ -188,7 +204,7 @@ export default function Expenses() {
     }
 
     return false;
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
   const loadReferences = useCallback(async () => {
     setReferenceState((current) => ({
@@ -331,7 +347,8 @@ export default function Expenses() {
   }, [filters, handleAuthError]);
 
   // Feeds the spend circle and the Categories tab. Non-blocking: the page
-  // still renders if stats fail, the circle just hides.
+  // still renders if stats fail, the circle just hides. statsVersion forces a
+  // refetch after mutations (e.g. deleting a transaction).
   useEffect(() => {
     let isCurrent = true;
 
@@ -350,7 +367,23 @@ export default function Expenses() {
     return () => {
       isCurrent = false;
     };
-  }, [filters.from, filters.to]);
+  }, [filters.from, filters.to, statsVersion]);
+
+  // A stale offset (bookmark, back button) past the filtered total renders an
+  // empty page with live matches; clamp back to the last real page.
+  useEffect(() => {
+    const total = transactionState.data?.total ?? 0;
+    const offset = Number(filters.offset);
+    const limit = Number(filters.limit);
+
+    if (transactionState.status === "ready" && total > 0 && offset >= total) {
+      updateFilters({
+        ...filters,
+        offset: String(Math.floor((total - 1) / limit) * limit),
+      }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateFilters is stable in behavior
+  }, [transactionState, filters]);
 
   function updateFilters(nextFilters, options = {}) {
     const params = writeFiltersToParams({
@@ -395,6 +428,7 @@ export default function Expenses() {
         transaction: null,
       });
       setNotice("Transaction deleted.");
+      setStatsVersion((current) => current + 1);
 
       const items = transactionState.data?.items || [];
       const offset = Number(filters.offset);
@@ -453,12 +487,18 @@ export default function Expenses() {
       ) : null}
 
       <MonthStrip
-        value={filters.from || getTodayInKolkata()}
+        value={filters.from && filters.from === filters.to ? filters.from : ""}
         onChange={(day) => updateFilters({
           ...filters,
           from: day,
           offset: "0",
           to: day,
+        })}
+        onClear={() => updateFilters({
+          ...filters,
+          from: "",
+          offset: "0",
+          to: "",
         })}
       />
 
@@ -474,12 +514,15 @@ export default function Expenses() {
               </strong>
             </div>
           </div>
+          <p className="text-center text-xs font-medium text-muted-foreground">
+            Expenses: {formatDateRange(filters.from, filters.to)}
+          </p>
           {stats.budgets?.summary?.totalBudgetedPaise > 0 ? (
             <p className="max-w-60 text-center text-sm font-bold text-foreground">
               You have spent {Math.round(
                 (Number(stats.budgets.summary.totalSpentPaise || 0) /
                   Number(stats.budgets.summary.totalBudgetedPaise)) * 100,
-              )}% of your budget
+              )}% of your monthly budget
             </p>
           ) : null}
         </div>
@@ -504,6 +547,7 @@ export default function Expenses() {
         <TabsContent className="grid gap-4" value="spends">
 
       <SavedViews
+        autoApplyRef={savedViewAutoApplyRef}
         canApplyDefault={!hasActiveFilters(filters)}
         currentFilters={filters}
         onApply={updateFilters}
@@ -522,7 +566,10 @@ export default function Expenses() {
           categories={referenceState.categories}
           filters={filters}
           isLoading={isLoading}
-          key={queryKey || "default-filters"}
+          // Remount only when the *applied* filters change (chip, pill, saved
+          // view); offset is pinned so paginating never clobbers a half-typed
+          // draft or steals focus.
+          key={JSON.stringify({ ...filters, offset: "" })}
           onApply={updateFilters}
           onClear={clearFilters}
           paymentMethods={referenceState.paymentMethods}
@@ -541,7 +588,7 @@ export default function Expenses() {
         </div>
 
         {transactionState.status === "loading" ? (
-          <LoadingState centered={false} title="Loading transactions" message="Fetching matching records." />
+          <LoadingState centered={false} title="Loading transactions" />
         ) : null}
 
         {transactionState.status === "error" ? (

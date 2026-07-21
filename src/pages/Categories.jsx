@@ -11,6 +11,7 @@ import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import {
   getErrorMessage,
   getFirstValidationError,
@@ -91,6 +92,7 @@ function groupCategories(items) {
 
 export default function Categories() {
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const formPanelRef = useRef(null);
   const nameInputRef = useRef(null);
   const [state, setState] = useState({
@@ -114,6 +116,7 @@ export default function Categories() {
 
   const handleAuthError = useCallback((error) => {
     if (error instanceof ApiError && error.status === 401) {
+      markUnauthenticated();
       navigate("/login", {
         replace: true,
         state: { notice: "Please log in again to manage categories." },
@@ -122,7 +125,7 @@ export default function Categories() {
     }
 
     return false;
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
   const loadCategories = useCallback(async (options = {}) => {
     if (!options.silent) {
@@ -410,7 +413,7 @@ export default function Categories() {
   }
 
   if (state.status === "loading") {
-    return <LoadingState title="Loading categories" message="Fetching category options." />;
+    return <LoadingState title="Loading categories" />;
   }
 
   if (state.status === "error") {

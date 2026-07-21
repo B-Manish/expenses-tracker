@@ -9,6 +9,7 @@ import PageHeader from "../components/PageHeader.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import {
   getErrorMessage,
   getFirstValidationError,
@@ -27,6 +28,7 @@ function buildPaymentMethodPayload(values) {
 
 export default function PaymentMethods() {
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [state, setState] = useState({
     data: null,
     error: "",
@@ -48,6 +50,7 @@ export default function PaymentMethods() {
 
   const handleAuthError = useCallback((error) => {
     if (error instanceof ApiError && error.status === 401) {
+      markUnauthenticated();
       navigate("/login", {
         replace: true,
         state: { notice: "Please log in again to manage payment methods." },
@@ -56,7 +59,7 @@ export default function PaymentMethods() {
     }
 
     return false;
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
   const loadPaymentMethods = useCallback(async (options = {}) => {
     if (!options.silent) {
@@ -219,7 +222,7 @@ export default function PaymentMethods() {
   }
 
   if (state.status === "loading") {
-    return <LoadingState title="Loading payment methods" message="Fetching payment options." />;
+    return <LoadingState title="Loading payment methods" />;
   }
 
   if (state.status === "error") {

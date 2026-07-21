@@ -52,27 +52,31 @@ export default function TrendChart({
   }
 
   return (
-    <div className="chart-frame trend-chart-frame">
+    <div
+      className="chart-frame trend-chart-frame"
+      role="img"
+      aria-label={`${mode === "monthly" ? "Monthly" : "Daily"} spending trend bar chart`}
+    >
       <ResponsiveContainer width="100%" height={260}>
         <BarChart data={chartData} margin={{ bottom: 0, left: 0, right: 6, top: 8 }}>
           <defs>
             <linearGradient id={`trendGradient-${mode}`} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" />
-              <stop offset="100%" stopColor="#1d4ed8" />
+              <stop offset="0%" stopColor="var(--primary)" />
+              <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.72" />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="label"
             minTickGap={mode === "monthly" ? 8 : 4}
             tickFormatter={labelFormatter}
             tickLine={false}
-            tick={{ fill: "#64748b", fontSize: 12 }}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
           />
           <YAxis
             tickFormatter={(value) => formatCurrencyFromPaise(value).replace(".00", "")}
             tickLine={false}
-            tick={{ fill: "#64748b", fontSize: 12 }}
+            tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
             width={72}
           />
           <Tooltip content={<ChartTooltip labelFormatter={labelFormatter} />} />

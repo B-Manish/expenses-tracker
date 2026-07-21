@@ -66,7 +66,7 @@ function ChecklistItem({ label, satisfied }) {
       ) : (
         <Circle size={16} aria-hidden="true" className="shrink-0 text-slate-300 dark:text-slate-600" />
       )}
-      <span className={satisfied ? "text-primary" : "text-slate-400 dark:text-slate-500 dark:text-slate-400"}>{label}</span>
+      <span className={satisfied ? "text-primary" : "text-slate-400 dark:text-slate-500"}>{label}</span>
       <span className="sr-only">{satisfied ? "(met)" : "(not met)"}</span>
     </li>
   );
@@ -94,7 +94,7 @@ export default function LoginForm({
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const checklist = evaluatePasswordChecklist(password, { email });
+  const checklist = evaluatePasswordChecklist(password, { email, name: fullName });
   const checklistComplete = isPasswordChecklistComplete(checklist);
   const passwordsMatch = password.length > 0 && password === confirmPassword;
 
@@ -163,10 +163,22 @@ export default function LoginForm({
 
     const fullNameError = validateFullName(fullName);
     const emailError = validateEmail(email);
+
+    if (fullNameError || emailError) {
+      setError(fullNameError || emailError);
+      return;
+    }
+
+    // Same rules as the reset flow, so the two entry points cannot drift.
+    if (!checklistComplete) {
+      setError("Your password does not meet all the requirements yet.");
+      return;
+    }
+
     const passwordError = validatePasswordConfirmation(password, confirmPassword);
 
-    if (fullNameError || emailError || passwordError) {
-      setError(fullNameError || emailError || passwordError);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -397,9 +409,16 @@ export default function LoginForm({
             onChange={(event) => setConfirmPassword(event.target.value)}
             placeholder="Confirm password"
             autoComplete="new-password"
+            error={confirmPassword.length > 0 && !passwordsMatch}
             disabled={isSubmitting}
           />
         </div>
+
+        <ul className="mt-5 space-y-2.5">
+          <ChecklistItem label="Must not contain your name or email" satisfied={checklist.noNameOrEmail} />
+          <ChecklistItem label="At least 8 characters" satisfied={checklist.minLength} />
+          <ChecklistItem label="Contains a symbol or a number" satisfied={checklist.hasSymbolOrNumber} />
+        </ul>
 
         <div className="mt-6">
           <GradientButton type="submit" disabled={isSubmitting}>

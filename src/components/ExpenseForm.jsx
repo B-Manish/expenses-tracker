@@ -174,7 +174,16 @@ export default function ExpenseForm({
         <div className="form-field wide-panel">
           <span>Date</span>
           <MonthStrip
+            disabled={isSubmitting}
             onChange={(day) => updateField("transactionDate", day)}
+            value={values.transactionDate}
+          />
+          <Input
+            aria-label="Transaction date"
+            disabled={isSubmitting}
+            onChange={(event) => updateField("transactionDate", event.target.value)}
+            required
+            type="date"
             value={values.transactionDate}
           />
           {errors.transactionDate ? <span className="field-error">{errors.transactionDate}</span> : null}

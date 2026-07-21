@@ -21,7 +21,7 @@ function ProtectedRoute() {
   const { error, isAuthenticated, isChecking, refreshAuth } = useAuth();
 
   if (isChecking) {
-    return <LoadingState title="Checking session" message="One moment while your session is verified." />;
+    return <LoadingState title="Checking session" />;
   }
 
   if (error && !isAuthenticated) {
@@ -48,7 +48,7 @@ function GuestOnlyRoute() {
   const { isAuthenticated, isChecking } = useAuth();
 
   if (isChecking) {
-    return <LoadingState title="Checking session" message="One moment while your session is verified." />;
+    return <LoadingState title="Checking session" />;
   }
 
   if (isAuthenticated) {

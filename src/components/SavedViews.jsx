@@ -39,11 +39,14 @@ function viewMatchesFilters(view, filters) {
 
 const CLOSED_DIALOG = { open: false, mode: "save", viewId: null, name: "", isDefault: false, busy: false, error: "" };
 
-export default function SavedViews({ canApplyDefault = false, currentFilters, onApply, onAuthError }) {
+export default function SavedViews({ autoApplyRef = null, canApplyDefault = false, currentFilters, onApply, onAuthError }) {
   const [state, setState] = useState({ items: [], status: "loading", error: "" });
   const [dialog, setDialog] = useState(CLOSED_DIALOG);
   const [deleteState, setDeleteState] = useState({ view: null, busy: false, error: "" });
-  const autoAppliedRef = useRef(false);
+  // The parent can own this ref so tab switches (which unmount this component)
+  // do not re-trigger the one-shot default-view auto-apply.
+  const localAutoAppliedRef = useRef(false);
+  const autoAppliedRef = autoApplyRef || localAutoAppliedRef;
 
   const handleError = useCallback((error, fallbackSetter) => {
     if (error instanceof ApiError && error.status === 401 && onAuthError) {
@@ -105,7 +108,7 @@ export default function SavedViews({ canApplyDefault = false, currentFilters, on
     if (defaultView) {
       onApply({ ...defaultView.filters, offset: "0" }, { replace: true });
     }
-  }, [state.status, state.items, canApplyDefault, onApply]);
+  }, [autoAppliedRef, state.status, state.items, canApplyDefault, onApply]);
 
   const activeView = state.items.find((view) => viewMatchesFilters(view, currentFilters)) || null;
 

@@ -1,7 +1,12 @@
 // Theme application is driven by localStorage so it works on every page
 // without a global provider. Modes: "light" | "dark" | "system".
+// Components that display the current mode (ThemeToggle, Settings) subscribe
+// so every entry point stays in sync without a context provider.
 const STORAGE_KEY = "theme";
 const VALID = new Set(["light", "dark", "system"]);
+const listeners = new Set();
+
+let systemListenerCleanup = null;
 
 export function resolveTheme(mode) {
   if (mode === "dark") {
@@ -15,12 +20,39 @@ export function resolveTheme(mode) {
   return "light";
 }
 
+function applyResolved(mode) {
+  document.documentElement.classList.toggle("dark", resolveTheme(mode) === "dark");
+}
+
 export function applyTheme(mode) {
   if (typeof document === "undefined") {
     return;
   }
 
-  document.documentElement.classList.toggle("dark", resolveTheme(mode) === "dark");
+  applyResolved(mode);
+
+  // In system mode, follow live OS theme changes.
+  systemListenerCleanup?.();
+  systemListenerCleanup = null;
+
+  if (mode === "system" && typeof window !== "undefined" && window.matchMedia) {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      applyResolved(mode);
+      listeners.forEach((listener) => listener(mode));
+    };
+
+    media.addEventListener("change", onChange);
+    systemListenerCleanup = () => media.removeEventListener("change", onChange);
+  }
+}
+
+export function subscribeTheme(listener) {
+  listeners.add(listener);
+
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function getStoredTheme() {
@@ -47,6 +79,7 @@ export function setStoredTheme(mode) {
   }
 
   applyTheme(next);
+  listeners.forEach((listener) => listener(next));
 
   return next;
 }

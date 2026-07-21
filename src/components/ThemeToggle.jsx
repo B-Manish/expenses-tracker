@@ -1,9 +1,14 @@
 import { Moon, Sun } from "lucide-react";
-import { useState } from "react";
-import { getStoredTheme, resolveTheme, setStoredTheme } from "../utils/theme.js";
+import { useEffect, useState } from "react";
+import { getStoredTheme, resolveTheme, setStoredTheme, subscribeTheme } from "../utils/theme.js";
 
 export default function ThemeToggle({ onToggle }) {
   const [mode, setMode] = useState(() => getStoredTheme());
+
+  // Stay in sync when the theme changes elsewhere (Settings page, another
+  // toggle instance, an OS switch while in system mode).
+  useEffect(() => subscribeTheme(() => setMode(getStoredTheme())), []);
+
   const isDark = resolveTheme(mode) === "dark";
 
   function toggle() {

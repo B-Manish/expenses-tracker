@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import LoginForm from "../components/LoginForm.jsx";
 import { useAuth } from "../services/auth.js";
@@ -15,7 +16,15 @@ export default function Login() {
   } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const notice = location.state?.notice || "";
+  const [notice] = useState(() => location.state?.notice || "");
+
+  // Consume the one-shot notice so refresh does not resurrect it.
+  useEffect(() => {
+    if (location.state?.notice) {
+      navigate(location.pathname, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
 
   async function handleAuthenticated() {
     navigate("/", { replace: true });

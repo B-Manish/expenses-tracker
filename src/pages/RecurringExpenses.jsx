@@ -1,4 +1,4 @@
-import { CalendarClock, Edit3, PlusCircle, Save, Trash2, X } from "lucide-react";
+import { CalendarClock, Edit3, PlusCircle, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -10,6 +10,7 @@ import SelectControl from "../components/SelectControl.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { Input } from "../components/ui/input.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { formatCategoryLabel } from "../utils/categories.js";
 import { formatCurrencyFromPaise, paiseToRupeesInputValue } from "../utils/currency.js";
 import {
@@ -67,6 +68,7 @@ function dueText(day) {
 
 export default function RecurringExpenses() {
   const navigate = useNavigate();
+  const { markUnauthenticated } = useAuth();
   const [state, setState] = useState({
     categories: [],
     data: null,
@@ -89,6 +91,7 @@ export default function RecurringExpenses() {
 
   const handleAuthError = useCallback((error) => {
     if (error instanceof ApiError && error.status === 401) {
+      markUnauthenticated();
       navigate("/login", {
         replace: true,
         state: { notice: "Please log in again to manage recurring expenses." },
@@ -97,7 +100,7 @@ export default function RecurringExpenses() {
     }
 
     return false;
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
   const loadPageData = useCallback(async (options = {}) => {
     if (!options.silent) {
@@ -239,6 +242,28 @@ export default function RecurringExpenses() {
     }
   }
 
+  async function reactivate(expense) {
+    setNotice("");
+
+    try {
+      await api.updateRecurringExpense(
+        expense.id,
+        buildPayload({ ...recurringExpenseToFormValues(expense), isActive: true }),
+      );
+      setNotice("Recurring expense activated.");
+      await loadPageData({ silent: true });
+    } catch (error) {
+      if (handleAuthError(error)) {
+        return;
+      }
+
+      setFormState((current) => ({
+        ...current,
+        message: getErrorMessage(error),
+      }));
+    }
+  }
+
   async function confirmDeactivate() {
     const expense = deleteState.expense;
 
@@ -279,7 +304,7 @@ export default function RecurringExpenses() {
   }
 
   if (state.status === "loading") {
-    return <LoadingState title="Loading recurring expenses" message="Fetching fixed monthly expenses." />;
+    return <LoadingState title="Loading recurring expenses" />;
   }
 
   if (state.status === "error") {
@@ -507,7 +532,18 @@ export default function RecurringExpenses() {
                     >
                       <Trash2 size={16} aria-hidden="true" />
                     </Button>
-                  ) : null}
+                  ) : (
+                    <Button
+                      aria-label={`Activate ${expense.title}`}
+                      onClick={() => reactivate(expense)}
+                      size="icon"
+                      title={`Activate ${expense.title}`}
+                      type="button"
+                      variant="outline"
+                    >
+                      <RotateCcw size={16} aria-hidden="true" />
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}
@@ -522,6 +558,7 @@ export default function RecurringExpenses() {
       </section>
 
       <ConfirmDialog
+        busyLabel="Deactivating"
         confirmLabel="Deactivate"
         error={deleteState.error}
         isBusy={deleteState.status === "submitting"}

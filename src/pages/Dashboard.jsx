@@ -28,6 +28,7 @@ import StatCard from "../components/StatCard.jsx";
 import TrendChart from "../components/TrendChart.jsx";
 import { Button } from "../components/ui/button.jsx";
 import { ApiError, api } from "../services/api.js";
+import { useAuth } from "../services/auth.js";
 import { formatCurrencyFromPaise, formatSignedCurrencyFromPaise } from "../utils/currency.js";
 import { formatDisplayDateTime } from "../utils/dateUtils.js";
 import { getErrorMessage } from "../utils/validation.js";
@@ -46,29 +47,6 @@ function formatCount(value) {
 
 function pluralizeTransactions(count) {
   return `${count} transaction${count === 1 ? "" : "s"}`;
-}
-
-function buildStatsQuery(range) {
-  return {
-    from: range.from || "",
-    to: range.to || "",
-  };
-}
-
-function selectedPeriodLabel(range) {
-  if (range.from && range.to) {
-    return `${range.from} to ${range.to}`;
-  }
-
-  if (range.from) {
-    return `From ${range.from}`;
-  }
-
-  if (range.to) {
-    return `Through ${range.to}`;
-  }
-
-  return "Current month";
 }
 
 function IncomeExpenseSummary({ expensePaise, incomePaise, netBalancePaise }) {
@@ -225,12 +203,7 @@ function BudgetsSummary({ data }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  // Stats always cover the default period (current month). The date-range
-  // picker was removed from the UI; the empty range keeps the API contract.
-  const [range] = useState({
-    from: "",
-    to: "",
-  });
+  const { markUnauthenticated } = useAuth();
   const [state, setState] = useState({
     data: null,
     error: "",
@@ -239,6 +212,7 @@ export default function Dashboard() {
 
   const handleAuthError = useCallback((error) => {
     if (error instanceof ApiError && error.status === 401) {
+      markUnauthenticated();
       navigate("/login", {
         replace: true,
         state: { notice: "Please log in again to view your dashboard." },
@@ -247,7 +221,7 @@ export default function Dashboard() {
     }
 
     return false;
-  }, [navigate]);
+  }, [markUnauthenticated, navigate]);
 
   const loadStats = useCallback(async () => {
     setState((current) => ({
@@ -257,7 +231,7 @@ export default function Dashboard() {
     }));
 
     try {
-      const data = await api.getStats(buildStatsQuery(range));
+      const data = await api.getStats();
 
       setState({
         data,
@@ -275,44 +249,18 @@ export default function Dashboard() {
         status: "error",
       });
     }
-  }, [handleAuthError, range]);
+  }, [handleAuthError]);
 
+  // Deferred so the loading setState inside loadStats is not synchronous in
+  // the effect body; the cleanup also dedupes StrictMode's double mount.
   useEffect(() => {
-    let isCurrent = true;
+    const timer = setTimeout(loadStats, 0);
 
-    api.getStats(buildStatsQuery(range))
-      .then((data) => {
-        if (isCurrent) {
-          setState({
-            data,
-            error: "",
-            status: "ready",
-          });
-        }
-      })
-      .catch((error) => {
-        if (!isCurrent) {
-          return;
-        }
-
-        if (handleAuthError(error)) {
-          return;
-        }
-
-        setState({
-          data: null,
-          error: getErrorMessage(error),
-          status: "error",
-        });
-      });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [handleAuthError, range]);
+    return () => clearTimeout(timer);
+  }, [loadStats]);
 
   if (state.status === "loading") {
-    return <LoadingState title="Loading dashboard" message="Fetching your latest summary." />;
+    return <LoadingState title="Loading dashboard" />;
   }
 
   if (state.status === "error") {
@@ -341,7 +289,7 @@ export default function Dashboard() {
   const biggestExpense = stats.biggestExpense;
   const mostUsedCategory = stats.mostUsedCategory;
   const mostUsedCount = Number(mostUsedCategory?.count ?? 0);
-  const periodLabel = selectedPeriodLabel(range);
+  const periodLabel = "Current month";
   const cards = [
     {
       detail: "Asia/Kolkata today",
@@ -422,7 +370,7 @@ export default function Dashboard() {
       value: mostUsedCategory?.category || "None yet",
     },
     {
-      detail: "Average expense per day in the selected period",
+      detail: "Average expense per day this month",
       icon: PiggyBank,
       label: "Daily average",
       tone: "balance",
@@ -446,7 +394,12 @@ export default function Dashboard() {
         )}
       />
 
-      <div className="summary-grid dashboard-summary-grid">
+      <div
+        aria-label="Spending summary cards"
+        className="summary-grid dashboard-summary-grid"
+        role="region"
+        tabIndex={0}
+      >
         {cards.map((card) => (
           <StatCard
             className={card.className || ""}
@@ -494,7 +447,7 @@ export default function Dashboard() {
         <DashboardCard
           title="Spending by category"
           titleId="category-title"
-          description="Expense breakdown for the selected period."
+          description="Expense breakdown for the current month."
         >
           <CategoryChart items={stats.categoryBreakdown || []} />
         </DashboardCard>
@@ -502,7 +455,7 @@ export default function Dashboard() {
         <DashboardCard
           title="Income vs expense"
           titleId="income-expense-title"
-          description="Side-by-side period totals with net balance."
+          description="Side-by-side monthly totals with net balance."
         >
           <IncomeExpenseSummary
             expensePaise={stats.totalExpensePaise}
