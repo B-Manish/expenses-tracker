@@ -293,8 +293,8 @@ export default function SmsImports() {
   return (
     <section className="page-section" aria-labelledby="sms-imports-title">
       <PageHeader
-        eyebrow="SMS Inbox"
-        title="SMS Review"
+        eyebrow="Review"
+        title="SMS Inbox"
         titleId="sms-imports-title"
         description="Review transactions captured from bank SMS before you trust them."
       />

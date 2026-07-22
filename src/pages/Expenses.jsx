@@ -516,31 +516,51 @@ export default function Expenses() {
         />
       ) : null}
 
-      {statsState.data ? (
-        <div className="grid justify-items-center gap-4 py-2">
-          <div className="grid size-44 place-items-center rounded-full bg-muted/70 p-4">
+      {statsState.data ? (() => {
+        const budgeted = Number(statsState.data.budgets?.summary?.totalBudgetedPaise || 0);
+        const spent = Number(statsState.data.budgets?.summary?.totalSpentPaise || 0);
+        const hasBudget = budgeted > 0;
+        const usagePct = hasBudget ? Math.round((spent / budgeted) * 100) : 0;
+        // The visible arc is capped at 100% so an over-budget ring reads as a
+        // full circle; the numeric label still shows the real percentage.
+        const arcPct = Math.min(usagePct, 100);
+        const overBudget = usagePct > 100;
+        const fill = overBudget ? "var(--destructive)" : "var(--primary)";
+
+        return (
+          <div className="grid justify-items-center gap-3 py-2">
             <div
-              className="grid size-full place-items-center rounded-full text-primary-foreground shadow-xl"
-              style={{ background: "var(--primary-gradient)" }}
+              className="grid size-44 place-items-center rounded-full p-3"
+              style={{ background: `conic-gradient(${fill} ${arcPct}%, var(--muted) ${arcPct}% 100%)` }}
+              role="img"
+              aria-label={
+                hasBudget
+                  ? `Spent ${formatCurrencyFromPaise(statsState.data.totalExpensePaise)}, ${usagePct}% of the monthly budget`
+                  : `Spent ${formatCurrencyFromPaise(statsState.data.totalExpensePaise)}`
+              }
             >
-              <strong className="px-3 text-center text-2xl font-bold text-primary-foreground">
-                {formatCurrencyFromPaise(statsState.data.totalExpensePaise)}
-              </strong>
+              <div className="grid size-full place-items-center gap-1 rounded-full bg-card shadow-inner">
+                <strong className="px-3 text-center text-2xl font-bold text-foreground">
+                  {formatCurrencyFromPaise(statsState.data.totalExpensePaise)}
+                </strong>
+                {hasBudget ? (
+                  <span className={overBudget ? "text-sm font-semibold text-destructive" : "text-sm font-semibold text-muted-foreground"}>
+                    {usagePct}% of budget
+                  </span>
+                ) : null}
+              </div>
             </div>
-          </div>
-          <p className="text-center text-xs font-medium text-muted-foreground">
-            Expenses: {formatDateRange(filters.from, filters.to)}
-          </p>
-          {statsState.data.budgets?.summary?.totalBudgetedPaise > 0 ? (
-            <p className="max-w-60 text-center text-sm font-bold text-foreground">
-              You have spent {Math.round(
-                (Number(statsState.data.budgets.summary.totalSpentPaise || 0) /
-                  Number(statsState.data.budgets.summary.totalBudgetedPaise)) * 100,
-              )}% of your monthly budget
+            <p className="text-center text-xs font-medium text-muted-foreground">
+              Expenses: {formatDateRange(filters.from, filters.to)}
             </p>
-          ) : null}
-        </div>
-      ) : null}
+            {overBudget ? (
+              <p className="max-w-60 text-center text-sm font-bold text-destructive">
+                Over budget by {formatCurrencyFromPaise(spent - budgeted)}
+              </p>
+            ) : null}
+          </div>
+        );
+      })() : null}
 
       <Tabs className="grid gap-4" defaultValue="spends">
         <TabsList className="h-auto w-full justify-start gap-8 rounded-none border-b border-border bg-transparent p-0">

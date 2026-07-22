@@ -4,7 +4,6 @@ import { getCurrentTimeInKolkata, getTodayInKolkata } from "../utils/dateUtils.j
 import { getFirstValidationError, validateTransactionForm } from "../utils/validation.js";
 import CategoryChips from "./CategoryChips.jsx";
 import GradientButton from "./auth/GradientButton.jsx";
-import MonthStrip from "./MonthStrip.jsx";
 import SelectControl from "./SelectControl.jsx";
 import { Input } from "./ui/input.jsx";
 
@@ -179,13 +178,8 @@ export default function ExpenseForm({
           {errors.amount ? <span className="field-error" id="tx-amount-error">{errors.amount}</span> : null}
         </label>
 
-        <div className="form-field wide-panel">
+        <label className="form-field">
           <span>Date</span>
-          <MonthStrip
-            disabled={isSubmitting}
-            onChange={(day) => updateField("transactionDate", day)}
-            value={values.transactionDate}
-          />
           <Input
             aria-describedby={errors.transactionDate ? "tx-date-error" : undefined}
             aria-invalid={errors.transactionDate ? true : undefined}
@@ -197,7 +191,7 @@ export default function ExpenseForm({
             value={values.transactionDate}
           />
           {errors.transactionDate ? <span className="field-error" id="tx-date-error">{errors.transactionDate}</span> : null}
-        </div>
+        </label>
 
         <label className="form-field">
           <span>Time</span>

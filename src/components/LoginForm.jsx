@@ -91,6 +91,9 @@ export default function LoginForm({
   const [code, setCode] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [error, setError] = useState("");
+  // Which login field the current error belongs to, so only the offending
+  // input is reddened instead of both. "" = banner-only (e.g. bad credentials).
+  const [errorField, setErrorField] = useState("");
   const [notice, setNotice] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -105,6 +108,7 @@ export default function LoginForm({
     setCode("");
     setResetToken("");
     setError("");
+    setErrorField("");
   }
 
   async function handleLogin(event) {
@@ -113,19 +117,28 @@ export default function LoginForm({
     const emailError = validateEmail(email);
     const passwordError = validatePassword(password);
 
-    if (emailError || passwordError) {
-      setError(emailError || passwordError);
+    if (emailError) {
+      setError(emailError);
+      setErrorField("email");
+      return;
+    }
+
+    if (passwordError) {
+      setError(passwordError);
+      setErrorField("password");
       return;
     }
 
     setIsSubmitting(true);
     setError("");
+    setErrorField("");
 
     try {
       await onLogin(email.trim(), password);
       await onAuthenticated();
     } catch (loginError) {
       setError(getErrorMessage(loginError, "Incorrect username or password"));
+      setErrorField("");
     } finally {
       setIsSubmitting(false);
     }
@@ -136,6 +149,7 @@ export default function LoginForm({
 
     if (emailError) {
       setError("Enter your email above, then tap Forgot password.");
+      setErrorField("email");
       return;
     }
 
@@ -293,7 +307,7 @@ export default function LoginForm({
             placeholder="Email"
             autoComplete="email"
             inputMode="email"
-            error={Boolean(bannerError)}
+            error={errorField === "email"}
             disabled={isSubmitting}
           />
           <PillField
@@ -305,7 +319,7 @@ export default function LoginForm({
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Password"
             autoComplete="current-password"
-            error={Boolean(bannerError)}
+            error={errorField === "password"}
             disabled={isSubmitting}
           />
         </div>
@@ -331,6 +345,7 @@ export default function LoginForm({
             type="button"
             onClick={() => {
               setError("");
+              setErrorField("");
               setPassword("");
               setView("signup");
             }}

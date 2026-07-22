@@ -179,5 +179,16 @@ export function errorResponse(error, contextOrEnv) {
   const status = getStatus(error);
   const message = getPublicMessage(error, contextOrEnv);
 
+  // Server faults return a generic client message, so without this the real
+  // cause (DB error, missing binding, unapplied migration) is invisible in
+  // production. Log the underlying error so `wrangler tail` shows it.
+  if (status >= HTTP_STATUS.INTERNAL_SERVER_ERROR) {
+    console.error("Unhandled API error", {
+      status,
+      message: error?.message,
+      stack: error?.stack,
+    });
+  }
+
   return failure(message, status, getHeaders(error));
 }

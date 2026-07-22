@@ -93,7 +93,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
                 <TableCell>
                   <div className="table-title-cell">
                     <strong>{transaction.title}</strong>
-                    <span>{transaction.merchant || "No merchant/source"}</span>
+                    {transaction.merchant ? <span>{transaction.merchant}</span> : null}
                   </div>
                 </TableCell>
                 <TableCell><TypeBadge type={transaction.type} /></TableCell>
@@ -125,7 +125,7 @@ export default function ExpenseTable({ items = [], onDeleteRequest }) {
                   <strong>{transaction.title}</strong>
                   <TypeBadge type={transaction.type} />
                 </div>
-                <span>{transaction.merchant || "No merchant/source"}</span>
+                {transaction.merchant ? <span>{transaction.merchant}</span> : null}
               </div>
             </div>
 
