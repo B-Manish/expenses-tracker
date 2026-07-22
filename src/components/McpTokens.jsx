@@ -47,16 +47,9 @@ export default function McpTokens() {
   }, [handle401]);
 
   useEffect(() => {
-    let isCurrent = true;
-
     (async () => {
-      if (!isCurrent) return;
       await load();
     })();
-
-    return () => {
-      isCurrent = false;
-    };
   }, [load]);
 
   async function handleCreate(event) {
