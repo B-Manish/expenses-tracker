@@ -257,3 +257,64 @@ test("listToolDefinitions strips handlers", () => {
   assert.equal(defs.length, 17);
   assert.equal(defs[0].handler, undefined);
 });
+
+import { onRequest } from "../functions/mcp/index.js";
+
+const MCP_TOKEN = "test-mcp-token-at-least-32-characters-long";
+
+function mcpContext(bodyObject, { token = MCP_TOKEN } = {}) {
+  const headers = { "content-type": "application/json" };
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
+  }
+  const request = new Request("https://tracker.example/mcp", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(bodyObject),
+  });
+  return { request, env: { MCP_TOKEN, DB: new TxnPagingDb([txnRow(2)]) } };
+}
+
+test("onRequest rejects non-POST with 405", async () => {
+  const response = await onRequest({
+    request: new Request("https://tracker.example/mcp", { method: "GET" }),
+    env: { MCP_TOKEN },
+  });
+  assert.equal(response.status, 405);
+});
+
+test("onRequest rejects a missing bearer token with 401", async () => {
+  const ctx = mcpContext({ jsonrpc: "2.0", id: 1, method: "ping" }, { token: null });
+  const response = await onRequest(ctx);
+  assert.equal(response.status, 401);
+});
+
+test("onRequest returns a JSON-RPC result end to end", async () => {
+  const ctx = mcpContext({
+    jsonrpc: "2.0",
+    id: 7,
+    method: "tools/call",
+    params: { name: "list_transactions", arguments: {} },
+  });
+  const response = await onRequest(ctx);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.result.structuredContent.items[0].amount, 200); // txnRow(2) -> 20000 paise
+});
+
+test("onRequest returns 202 with no body for a notification", async () => {
+  const ctx = mcpContext({ jsonrpc: "2.0", method: "notifications/initialized" });
+  const response = await onRequest(ctx);
+  assert.equal(response.status, 202);
+});
+
+test("onRequest returns a parse error for invalid JSON", async () => {
+  const request = new Request("https://tracker.example/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${MCP_TOKEN}` },
+    body: "{ not json",
+  });
+  const response = await onRequest({ request, env: { MCP_TOKEN, DB: new TxnPagingDb([]) } });
+  const body = await response.json();
+  assert.equal(body.error.code, -32700);
+});
