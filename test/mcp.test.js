@@ -134,3 +134,126 @@ test("tools registry exposes all 17 tools with schemas and annotations", () => {
   assert.equal(tools.list_transactions.annotations.readOnlyHint, true);
   assert.equal(tools.delete_transaction.annotations.destructiveHint, true);
 });
+
+import { handleRpc, listToolDefinitions } from "../functions/_shared/mcp/protocol.js";
+
+// A DB stub for a single list_transactions round trip: COUNT then SELECT slice.
+class TxnPagingDb {
+  constructor(rows) {
+    this.rows = rows;
+  }
+
+  prepare(sql) {
+    const db = this;
+    return {
+      values: [],
+      bind(...values) {
+        this.values = values;
+        return this;
+      },
+      async first() {
+        if (sql.includes("COUNT(*)")) {
+          return { total: db.rows.length };
+        }
+        throw new Error(`Unexpected first(): ${sql}`);
+      },
+      async all() {
+        const offset = this.values[this.values.length - 1];
+        const limit = this.values[this.values.length - 2];
+        return { results: db.rows.slice(offset, offset + limit) };
+      },
+    };
+  }
+}
+
+function txnRow(id) {
+  return {
+    id,
+    type: "EXPENSE",
+    title: `Txn ${id}`,
+    amount_paise: id * 10000,
+    category_id: null,
+    transaction_date: "2026-06-15",
+    transaction_time: "10:00",
+    source: "MANUAL",
+    created_at: "2026-06-15 04:30:00",
+    updated_at: "2026-06-15 04:30:00",
+  };
+}
+
+const CTX = () => ({ db: new TxnPagingDb([txnRow(1)]), userId: "phone:9949055750", tools, now: new Date() });
+
+test("initialize returns capabilities, serverInfo and echoes protocolVersion", async () => {
+  const response = await handleRpc(
+    { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } },
+    CTX(),
+  );
+  assert.equal(response.result.serverInfo.name, "cashly-expenses");
+  assert.equal(response.result.protocolVersion, "2025-06-18");
+  assert.deepEqual(response.result.capabilities, { tools: {} });
+});
+
+test("notifications/initialized produces no response", async () => {
+  const response = await handleRpc({ jsonrpc: "2.0", method: "notifications/initialized" }, CTX());
+  assert.equal(response, null);
+});
+
+test("ping returns an empty result", async () => {
+  const response = await handleRpc({ jsonrpc: "2.0", id: 9, method: "ping" }, CTX());
+  assert.deepEqual(response.result, {});
+});
+
+test("unknown method returns -32601", async () => {
+  const response = await handleRpc({ jsonrpc: "2.0", id: 2, method: "does/not/exist" }, CTX());
+  assert.equal(response.error.code, -32601);
+});
+
+test("batch requests are rejected with -32600", async () => {
+  const response = await handleRpc([{ jsonrpc: "2.0", id: 1, method: "ping" }], CTX());
+  assert.equal(response.error.code, -32600);
+});
+
+test("tools/list returns all tool definitions", async () => {
+  const response = await handleRpc({ jsonrpc: "2.0", id: 3, method: "tools/list" }, CTX());
+  assert.equal(response.result.tools.length, 17);
+  assert.ok(response.result.tools.every((t) => t.name && t.inputSchema));
+});
+
+test("tools/call runs a tool and returns rupees", async () => {
+  const response = await handleRpc(
+    { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "list_transactions", arguments: { limit: 10 } } },
+    CTX(),
+  );
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.items[0].amount, 100); // 10000 paise -> 100 rupees
+  assert.equal(response.result.structuredContent.items[0].amountPaise, undefined);
+  assert.equal(typeof response.result.content[0].text, "string");
+});
+
+test("tools/call surfaces validation errors as isError results", async () => {
+  const response = await handleRpc(
+    {
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "create_transaction", arguments: { type: "EXPENSE", title: "x", amount: "-5", transactionDate: "2026-06-15" } },
+    },
+    CTX(),
+  );
+  assert.equal(response.result.isError, true);
+  assert.match(response.result.content[0].text, /amount|Amount/i);
+});
+
+test("tools/call with an unknown tool returns -32602", async () => {
+  const response = await handleRpc(
+    { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "nope" } },
+    CTX(),
+  );
+  assert.equal(response.error.code, -32602);
+});
+
+test("listToolDefinitions strips handlers", () => {
+  const defs = listToolDefinitions(tools);
+  assert.equal(defs.length, 17);
+  assert.equal(defs[0].handler, undefined);
+});
