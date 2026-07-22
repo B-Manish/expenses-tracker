@@ -100,3 +100,37 @@ test("resolvePaymentMethodRef resolves names too", async () => {
   assert.equal(await resolvePaymentMethodRef(db, "u", "upi"), 3);
   await assert.rejects(() => resolvePaymentMethodRef(db, "u", "Bitcoin"), /Unknown payment method/);
 });
+
+import { tools } from "../functions/_shared/mcp/tools.js";
+
+test("tools registry exposes all 17 tools with schemas and annotations", () => {
+  const names = Object.keys(tools).sort();
+  assert.deepEqual(names, [
+    "create_budget",
+    "create_category",
+    "create_payment_method",
+    "create_transaction",
+    "delete_budget",
+    "delete_category",
+    "delete_payment_method",
+    "delete_transaction",
+    "get_spending_summary",
+    "list_budgets",
+    "list_categories",
+    "list_payment_methods",
+    "list_transactions",
+    "update_budget",
+    "update_category",
+    "update_payment_method",
+    "update_transaction",
+  ]);
+
+  for (const [name, tool] of Object.entries(tools)) {
+    assert.equal(typeof tool.description, "string", `${name} description`);
+    assert.equal(tool.inputSchema?.type, "object", `${name} inputSchema`);
+    assert.equal(typeof tool.handler, "function", `${name} handler`);
+  }
+
+  assert.equal(tools.list_transactions.annotations.readOnlyHint, true);
+  assert.equal(tools.delete_transaction.annotations.destructiveHint, true);
+});
