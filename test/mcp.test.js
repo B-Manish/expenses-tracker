@@ -1,37 +1,52 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { requireMcpAuthorization } from "../functions/_shared/mcp/auth.js";
-
-const TOKEN = "test-mcp-token-at-least-32-characters-long";
+import { hashMcpToken } from "../functions/_shared/mcpTokens.js";
 
 function req(headers = {}) {
   return new Request("https://tracker.example/mcp", { method: "POST", headers });
 }
 
-test("requireMcpAuthorization rejects when MCP_TOKEN is not configured", async () => {
-  const result = await requireMcpAuthorization(req({ authorization: `Bearer ${TOKEN}` }), {});
-  assert.equal(result.ok, false);
-  assert.equal(result.status, 500);
-});
+// Stub DB that resolves one known token hash to a user (matches resolveMcpToken's queries).
+function tokenDb(knownHash, userId) {
+  return {
+    prepare(sql) {
+      return {
+        values: [],
+        bind(...values) {
+          this.values = values;
+          return this;
+        },
+        async first() {
+          const [hash] = this.values;
+          return sql.includes("token_hash") && hash === knownHash ? { id: 1, user_id: userId } : null;
+        },
+        async run() {
+          return { meta: { changes: 1 } };
+        },
+      };
+    },
+  };
+}
 
 test("requireMcpAuthorization rejects a missing Authorization header", async () => {
-  const result = await requireMcpAuthorization(req(), { MCP_TOKEN: TOKEN });
+  const result = await requireMcpAuthorization(req(), tokenDb("x", "u"));
   assert.equal(result.ok, false);
   assert.equal(result.status, 401);
 });
 
-test("requireMcpAuthorization rejects a wrong token", async () => {
-  const result = await requireMcpAuthorization(
-    req({ authorization: "Bearer wrong-token-wrong-token-wrong-token-xx" }),
-    { MCP_TOKEN: TOKEN },
-  );
+test("requireMcpAuthorization rejects an unknown token", async () => {
+  const result = await requireMcpAuthorization(req({ authorization: "Bearer nope" }), tokenDb("x", "u"));
   assert.equal(result.ok, false);
   assert.equal(result.status, 401);
 });
 
-test("requireMcpAuthorization accepts the correct bearer token", async () => {
-  const result = await requireMcpAuthorization(req({ authorization: `Bearer ${TOKEN}` }), { MCP_TOKEN: TOKEN });
+test("requireMcpAuthorization resolves a valid token to its user", async () => {
+  const token = "cashly_mcp_valid";
+  const db = tokenDb(await hashMcpToken(token), "email:alice@example.com");
+  const result = await requireMcpAuthorization(req({ authorization: `Bearer ${token}` }), db);
   assert.equal(result.ok, true);
+  assert.equal(result.userId, "email:alice@example.com");
 });
 
 import {
@@ -260,9 +275,27 @@ test("listToolDefinitions strips handlers", () => {
 
 import { onRequest } from "../functions/mcp/index.js";
 
-const MCP_TOKEN = "test-mcp-token-at-least-32-characters-long";
+// Endpoint DB stub: resolves the presented token to a user, then answers the tool query.
+function mcpEndpointDb({ tokenUserId = "phone:9949055750", txns = [txnRow(2)] } = {}) {
+  return new RowsDb([
+    {
+      match: "mcp_tokens",
+      first: () => (tokenUserId ? { id: 1, user_id: tokenUserId } : null),
+      run: () => ({ meta: { changes: 1 } }),
+    },
+    {
+      match: "FROM transactions",
+      first: () => ({ total: txns.length }),
+      all: (values) => {
+        const offset = values[values.length - 1];
+        const limit = values[values.length - 2];
+        return { results: txns.slice(offset, offset + limit) };
+      },
+    },
+  ]);
+}
 
-function mcpContext(bodyObject, { token = MCP_TOKEN } = {}) {
+function mcpContext(bodyObject, { token = "cashly_mcp_test", tokenUserId = "phone:9949055750" } = {}) {
   const headers = { "content-type": "application/json" };
   if (token) {
     headers.authorization = `Bearer ${token}`;
@@ -272,19 +305,25 @@ function mcpContext(bodyObject, { token = MCP_TOKEN } = {}) {
     headers,
     body: JSON.stringify(bodyObject),
   });
-  return { request, env: { MCP_TOKEN, DB: new TxnPagingDb([txnRow(2)]) } };
+  return { request, env: { DB: mcpEndpointDb({ tokenUserId }) } };
 }
 
 test("onRequest rejects non-POST with 405", async () => {
   const response = await onRequest({
     request: new Request("https://tracker.example/mcp", { method: "GET" }),
-    env: { MCP_TOKEN },
+    env: {},
   });
   assert.equal(response.status, 405);
 });
 
 test("onRequest rejects a missing bearer token with 401", async () => {
   const ctx = mcpContext({ jsonrpc: "2.0", id: 1, method: "ping" }, { token: null });
+  const response = await onRequest(ctx);
+  assert.equal(response.status, 401);
+});
+
+test("onRequest rejects an unknown token with 401", async () => {
+  const ctx = mcpContext({ jsonrpc: "2.0", id: 1, method: "ping" }, { tokenUserId: null });
   const response = await onRequest(ctx);
   assert.equal(response.status, 401);
 });
@@ -302,6 +341,29 @@ test("onRequest returns a JSON-RPC result end to end", async () => {
   assert.equal(body.result.structuredContent.items[0].amount, 200); // txnRow(2) -> 20000 paise
 });
 
+test("onRequest scopes queries to the token's user", async () => {
+  let capturedUserId = null;
+  const db = new RowsDb([
+    { match: "mcp_tokens", first: () => ({ id: 1, user_id: "email:alice@example.com" }), run: () => ({ meta: {} }) },
+    {
+      match: "FROM transactions",
+      first: (values) => {
+        capturedUserId = values[0];
+        return { total: 0 };
+      },
+      all: () => ({ results: [] }),
+    },
+  ]);
+  const request = new Request("https://tracker.example/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer cashly_mcp_alice" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_transactions", arguments: {} } }),
+  });
+  const response = await onRequest({ request, env: { DB: db } });
+  assert.equal(response.status, 200);
+  assert.equal(capturedUserId, "email:alice@example.com");
+});
+
 test("onRequest returns 202 with no body for a notification", async () => {
   const ctx = mcpContext({ jsonrpc: "2.0", method: "notifications/initialized" });
   const response = await onRequest(ctx);
@@ -311,10 +373,10 @@ test("onRequest returns 202 with no body for a notification", async () => {
 test("onRequest returns a parse error for invalid JSON", async () => {
   const request = new Request("https://tracker.example/mcp", {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${MCP_TOKEN}` },
+    headers: { "content-type": "application/json", authorization: "Bearer cashly_mcp_test" },
     body: "{ not json",
   });
-  const response = await onRequest({ request, env: { MCP_TOKEN, DB: new TxnPagingDb([]) } });
+  const response = await onRequest({ request, env: { DB: mcpEndpointDb({}) } });
   const body = await response.json();
   assert.equal(body.error.code, -32700);
 });
@@ -470,10 +532,10 @@ test("tools/call list_budgets converts paise to rupees end to end", async () => 
 test("onRequest returns a JSON-RPC internal error when the DB binding is missing", async () => {
   const request = new Request("https://tracker.example/mcp", {
     method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${MCP_TOKEN}` },
+    headers: { "content-type": "application/json", authorization: "Bearer cashly_mcp_test" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
   });
-  const response = await onRequest({ request, env: { MCP_TOKEN } }); // env has no DB
+  const response = await onRequest({ request, env: {} }); // env has no DB
   assert.equal(response.status, 500);
   const body = await response.json();
   assert.equal(body.error.code, -32603);
