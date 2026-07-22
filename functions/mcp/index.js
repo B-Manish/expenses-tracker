@@ -39,16 +39,20 @@ export async function onRequest(context) {
   const userId =
     typeof env.MCP_USER_ID === "string" && env.MCP_USER_ID.trim() ? env.MCP_USER_ID.trim() : DEFAULT_USER_ID;
 
-  const response = await handleRpc(message, {
-    db: requireDb(context),
-    userId,
-    tools,
-    now: new Date(),
-  });
+  try {
+    const response = await handleRpc(message, {
+      db: requireDb(context),
+      userId,
+      tools,
+      now: new Date(),
+    });
 
-  if (response === null) {
-    return new Response(null, { status: 202 });
+    if (response === null) {
+      return new Response(null, { status: 202 });
+    }
+
+    return jsonResponse(response, 200);
+  } catch {
+    return jsonResponse(rpcErrorBody(-32603, "Internal error"), 500);
   }
-
-  return jsonResponse(response, 200);
 }

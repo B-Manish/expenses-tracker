@@ -318,3 +318,163 @@ test("onRequest returns a parse error for invalid JSON", async () => {
   const body = await response.json();
   assert.equal(body.error.code, -32700);
 });
+
+// ---- Final-review follow-up: broader tool coverage + endpoint hardening ----
+
+import { resolvePeriodRange } from "../functions/_shared/mcp/tools.js";
+
+const FIXED_NOW = new Date("2026-06-15T12:00:00+05:30");
+
+test("resolvePeriodRange resolves each period to a Kolkata date range", () => {
+  assert.deepEqual(resolvePeriodRange({ period: "today" }, FIXED_NOW), {
+    from: "2026-06-15",
+    to: "2026-06-15",
+  });
+  assert.deepEqual(resolvePeriodRange({ period: "year" }, FIXED_NOW), {
+    from: "2026-01-01",
+    to: "2026-12-31",
+  });
+  assert.equal(resolvePeriodRange({ period: "month" }, FIXED_NOW).from, "2026-06-01");
+  assert.equal(resolvePeriodRange({}, FIXED_NOW).from, "2026-06-01"); // defaults to month
+
+  const week = resolvePeriodRange({ period: "week" }, FIXED_NOW);
+  assert.ok(week.from <= "2026-06-15" && week.to >= "2026-06-15");
+
+  assert.deepEqual(
+    resolvePeriodRange({ period: "custom", from: "2026-03-01", to: "2026-03-31" }, FIXED_NOW),
+    { from: "2026-03-01", to: "2026-03-31" },
+  );
+});
+
+test("resolvePeriodRange rejects an unknown period or a custom period without from/to", () => {
+  assert.throws(() => resolvePeriodRange({ period: "custom" }, FIXED_NOW), /custom period requires/);
+  assert.throws(() => resolvePeriodRange({ period: "bogus" }, FIXED_NOW), /Unknown period/);
+});
+
+// Generic D1 stand-in: dispatches first()/all()/run() by SQL substring match.
+class RowsDb {
+  constructor(handlers) {
+    this.handlers = handlers;
+  }
+
+  prepare(sql) {
+    const db = this;
+    const pick = (kind) => {
+      const handler = db.handlers.find((h) => sql.includes(h.match) && h[kind]);
+      if (!handler) {
+        throw new Error(`Unexpected ${kind}(): ${sql}`);
+      }
+      return handler[kind];
+    };
+    return {
+      values: [],
+      bind(...values) {
+        this.values = values;
+        return this;
+      },
+      async first() {
+        return pick("first")(this.values);
+      },
+      async all() {
+        return pick("all")(this.values);
+      },
+      async run() {
+        return pick("run")(this.values);
+      },
+    };
+  }
+}
+
+function callToolRpc(name, args, db) {
+  return handleRpc(
+    { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+    { db, userId: "phone:9949055750", tools, now: FIXED_NOW },
+  );
+}
+
+test("tools/call list_categories returns categories through the full stack", async () => {
+  const db = new RowsDb([
+    {
+      match: "FROM categories c",
+      all: () => ({
+        results: [
+          {
+            id: 1,
+            name: "Food",
+            type: "EXPENSE",
+            color: "#ef4444",
+            icon: null,
+            parent_id: null,
+            parent_name: null,
+            is_default: 1,
+            created_at: "x",
+            updated_at: "x",
+          },
+        ],
+      }),
+    },
+  ]);
+  const response = await callToolRpc("list_categories", {}, db);
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.items[0].name, "Food");
+});
+
+test("tools/call list_payment_methods returns methods", async () => {
+  const db = new RowsDb([
+    {
+      match: "FROM payment_methods",
+      all: () => ({
+        results: [{ id: 3, name: "UPI", is_default: 1, created_at: "x", updated_at: "x" }],
+      }),
+    },
+  ]);
+  const response = await callToolRpc("list_payment_methods", {}, db);
+  assert.equal(response.result.structuredContent.items[0].name, "UPI");
+});
+
+test("tools/call list_budgets converts paise to rupees end to end", async () => {
+  const db = new RowsDb([
+    { match: "FROM transactions", all: () => ({ results: [] }) },
+    { match: "FROM recurring_expenses", all: () => ({ results: [] }) },
+    {
+      match: "FROM budgets b",
+      all: () => ({
+        results: [
+          {
+            id: 1,
+            user_id: "phone:9949055750",
+            category_id: 1,
+            category_name: "Food",
+            category_type: "EXPENSE",
+            category_color: "#ef4444",
+            category_icon: null,
+            category_parent_id: null,
+            category_parent_name: null,
+            amount_paise: 500000,
+            period: "MONTHLY",
+            is_active: 1,
+            created_at: "x",
+            updated_at: "x",
+          },
+        ],
+      }),
+    },
+  ]);
+  const response = await callToolRpc("list_budgets", {}, db);
+  assert.equal(response.result.isError, false);
+  assert.equal(response.result.structuredContent.items[0].amount, 5000); // 500000 paise
+  assert.equal(response.result.structuredContent.items[0].amountPaise, undefined);
+  assert.equal(response.result.structuredContent.summary.totalBudgeted, 5000);
+});
+
+test("onRequest returns a JSON-RPC internal error when the DB binding is missing", async () => {
+  const request = new Request("https://tracker.example/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${MCP_TOKEN}` },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+  });
+  const response = await onRequest({ request, env: { MCP_TOKEN } }); // env has no DB
+  assert.equal(response.status, 500);
+  const body = await response.json();
+  assert.equal(body.error.code, -32603);
+});
