@@ -1,13 +1,17 @@
 # MCP Server
 
 The app exposes a remote MCP server at `POST /mcp` so MCP clients (Claude Code,
-Cursor, Codex) can query and manage expenses in natural language.
+Cursor, Codex) can query and manage **your** expenses in natural language.
 
 ## Auth
 
-All requests require `Authorization: Bearer <MCP_TOKEN>`. `MCP_TOKEN` is a
-Cloudflare secret (and a local `.dev.vars` value), minimum 32 characters. Treat
-it like `APP_PASSWORD`: it grants full read/write access to your finances.
+Each user generates their own token in the app: **Settings → MCP Access →
+Generate token**. The token is shown once — copy it immediately. It is sent as
+`Authorization: Bearer <token>` and scopes the MCP server to that user's data.
+Treat it like a password: it grants full read/write access to your finances.
+Revoke a token any time from the same screen (revocation is immediate).
+
+There is no shared server-wide token; tokens are per-user and stored hashed.
 
 ## Connect a client
 
@@ -15,11 +19,11 @@ Claude Code:
 
 ```bash
 claude mcp add --transport http cashly https://tracker.manishbatchu.com/mcp \
-  --header "Authorization: Bearer <MCP_TOKEN>"
+  --header "Authorization: Bearer <your-token>"
 ```
 
 Cursor / Codex: add an MCP server entry with the URL
-`https://tracker.manishbatchu.com/mcp` and an `Authorization: Bearer <MCP_TOKEN>`
+`https://tracker.manishbatchu.com/mcp` and an `Authorization: Bearer <your-token>`
 header.
 
 ## Tools
