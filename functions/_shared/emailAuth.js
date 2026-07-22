@@ -7,7 +7,9 @@ const CODE_TTL_MINUTES = 10;
 const SIGNUP_PURPOSE = "SIGNUP";
 const SALT_BYTES = 16;
 const HASH_BYTES = 32;
-const PBKDF2_ITERATIONS = 210000;
+// Cloudflare Workers' WebCrypto hard-caps PBKDF2 at 100000 iterations; a higher
+// value throws NotSupportedError at runtime. Do not raise above this ceiling.
+const PBKDF2_ITERATIONS = 100000;
 const encoder = new TextEncoder();
 
 const emailSchema = z.object({
