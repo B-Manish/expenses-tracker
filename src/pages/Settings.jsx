@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorState from "../components/ErrorState.jsx";
 import LoadingState from "../components/LoadingState.jsx";
+import McpTokens from "../components/McpTokens.jsx";
 import PageHeader from "../components/PageHeader.jsx";
 import SelectControl from "../components/SelectControl.jsx";
 import { Button } from "../components/ui/button.jsx";
@@ -357,6 +358,8 @@ export default function Settings() {
           </div>
         </form>
       </section>
+
+      <McpTokens />
 
       <section className="panel danger-panel narrow-section" aria-labelledby="session-title">
         <div>

@@ -156,6 +156,10 @@ That migration creates the core tables:
 
 It also inserts default categories, payment methods, and settings.
 
+Additional migrations include:
+
+- `migrations/0018_mcp_tokens.sql` — creates the `mcp_tokens` table for per-user MCP authentication tokens.
+
 ### Apply Migrations Locally
 
 Run this after creating or changing migration files:
@@ -300,6 +304,8 @@ After each production deployment, verify:
 - Categories load.
 - Payment methods load.
 - Settings load and save.
+- A token generated in Settings → MCP Access authenticates `POST /mcp` (`initialize` returns a result).
+- A revoked or unknown token returns 401 from `POST /mcp`.
 
 Useful URLs:
 
