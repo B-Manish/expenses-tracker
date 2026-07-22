@@ -276,29 +276,44 @@ async function sendVerificationCode(env, email, code) {
     });
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: env.RESET_EMAIL_FROM.trim(),
-      to: [email],
-      subject: "Cashly verification code",
-      text: [
-        `Your Cashly verification code is ${code}.`,
-        `It expires in ${CODE_TTL_MINUTES} minutes.`,
-        "If you did not request this, you can ignore this email.",
-      ].join("\n\n"),
-      html: [
-        "<p>Your Cashly verification code is:</p>",
-        `<p style="font-size: 28px; font-weight: 700;">${code}</p>`,
-        `<p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
-        "<p>If you did not request this, you can ignore this email.</p>",
-      ].join(""),
-    }),
-  });
+  let response;
+
+  try {
+    response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        // Trim: a secret set with a trailing newline makes this an invalid
+        // header value, which throws synchronously here and surfaces as an
+        // opaque 500 instead of a delivery error.
+        Authorization: `Bearer ${env.RESEND_API_KEY.trim()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: env.RESET_EMAIL_FROM.trim(),
+        to: [email],
+        subject: "Cashly verification code",
+        text: [
+          `Your Cashly verification code is ${code}.`,
+          `It expires in ${CODE_TTL_MINUTES} minutes.`,
+          "If you did not request this, you can ignore this email.",
+        ].join("\n\n"),
+        html: [
+          "<p>Your Cashly verification code is:</p>",
+          `<p style="font-size: 28px; font-weight: 700;">${code}</p>`,
+          `<p>It expires in ${CODE_TTL_MINUTES} minutes.</p>`,
+          "<p>If you did not request this, you can ignore this email.</p>",
+        ].join(""),
+      }),
+    });
+  } catch (cause) {
+    // Network failure or an invalid request (e.g. malformed key/header). Report
+    // a delivery error the client can act on rather than a generic 500.
+    throw internalServerError("Verification email could not be sent", {
+      expose: true,
+      publicMessage: "Verification email could not be sent",
+      cause,
+    });
+  }
 
   if (!response.ok) {
     throw internalServerError("Verification email could not be sent", {
