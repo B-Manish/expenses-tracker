@@ -148,6 +148,10 @@ export const api = {
   updateSavedView: (id, payload) => jsonRequest(`/api/saved-views/${id}`, "PATCH", payload),
   deleteSavedView: (id) => request(`/api/saved-views/${id}`, { method: "DELETE" }),
 
+  getMcpTokens: () => request("/api/mcp/tokens"),
+  createMcpToken: (label) => jsonRequest("/api/mcp/tokens", "POST", { label }),
+  revokeMcpToken: (id) => request(`/api/mcp/tokens/${id}`, { method: "DELETE" }),
+
   getBudgets: () => request("/api/budgets"),
   getBudget: (id) => request(`/api/budgets/${id}`),
   createBudget: (payload) => jsonRequest("/api/budgets", "POST", payload),
