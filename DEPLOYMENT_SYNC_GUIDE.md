@@ -78,6 +78,7 @@ This app uses these runtime secrets:
 | `APP_PASSWORD` | Password used to log in to the app | Yes |
 | `SESSION_SECRET` | Secret used to sign session cookies | Yes |
 | `SMS_INGEST_TOKEN` | Restricted bearer token used by the iPhone Shortcut ingestion endpoint | Yes |
+| `MCP_TOKEN` | Bearer token for the `/mcp` MCP server endpoint | Yes |
 
 For local development, put them in `.dev.vars`:
 
@@ -85,6 +86,7 @@ For local development, put them in `.dev.vars`:
 APP_PASSWORD=your-local-password
 SESSION_SECRET=your-local-long-random-secret
 SMS_INGEST_TOKEN=your-local-random-token-of-at-least-32-characters
+MCP_TOKEN=your-local-random-token-of-at-least-32-characters
 ```
 
 Do not commit `.dev.vars`. It is already ignored by `.gitignore`.
@@ -101,6 +103,7 @@ For production, set them in Cloudflare:
    - `APP_PASSWORD`
    - `SESSION_SECRET`
    - `SMS_INGEST_TOKEN`
+   - `MCP_TOKEN`
 
 Because this project uses `wrangler.toml`, Cloudflare may show a message saying environment variables are managed through `wrangler.toml` and only encrypted secrets can be managed through the dashboard. That is expected. For this app, `APP_PASSWORD` and `SESSION_SECRET` should be dashboard secrets.
 
@@ -300,6 +303,8 @@ After each production deployment, verify:
 - Categories load.
 - Payment methods load.
 - Settings load and save.
+- `POST /mcp` with a valid `Authorization: Bearer <MCP_TOKEN>` returns an `initialize` result.
+- `POST /mcp` without the token returns 401.
 
 Useful URLs:
 
